@@ -312,268 +312,121 @@ mvparser parser input
                                   eof
                                   return res
 
-bsSize :: Integer -> Integer
-bsSize num =
-    toInteger $ length $ bsShow num
-
-bsShow :: Integer -> String
-bsShow num =
-    showIntAtBase 2 intToDigit num ""
-
-bsRead :: String -> Integer
-bsRead str =
-    case readF str of
-      [(numb,"")] -> numb
-      _ -> error ("Invalid input to bsRead : \"" ++ str ++ "\"!")
-    where readF :: ReadS Integer
-          readF = readInt 2 (\ x -> x == '0' || x == '1') digitToInt
-
-bsAdd :: Integer -> Integer -> Integer
-bsAdd num0 num1 =
-    num0 + num1
-
-bsSub :: Integer -> Integer -> Integer
-bsSub num0 num1 =
-    num0 - num1
-
-bsMul :: Integer -> Integer -> Integer
-bsMul num0 num1 =
-    num0 * num1
-
-bsDiv :: Integer -> Integer -> Integer
-bsDiv num0 num1 =
-    div num0 num1
-
-bsMod :: Integer -> Integer -> Integer
-bsMod num0 num1 =
-    mod num0 num1
-
-bsNeg :: Integer -> Integer
-bsNeg num0 =
-    (-num0)
-
-bsPos :: Integer -> Integer
-bsPos num0 =
-    num0
-
-bsLt :: Integer -> Integer -> Integer
-bsLt num0 num1 =
-    case num0 < num1 of
-      True -> 1
-      False -> 0
-
-bsLte :: Integer -> Integer -> Integer
-bsLte num0 num1 =
-    case num0 <= num1 of
-      True -> 1
-      False -> 0
-
-bsGt :: Integer -> Integer -> Integer
-bsGt num0 num1 =
-    case num0 > num1 of
-      True -> 1
-      False -> 0
-
-bsGte :: Integer -> Integer -> Integer
-bsGte num0 num1 =
-    case num0 >= num1 of
-      True -> 1
-      False -> 0
-
-bsEq :: Integer -> Integer -> Integer
-bsEq num0 num1 =
-    case num0 == num1 of
-      True -> 1
-      False -> 0
-
-bsNeq :: Integer -> Integer -> Integer
-bsNeq num0 num1 =
-    case num0 /= num1 of
-      True -> 1
-      False -> 0
-
-bsNot :: Integer -> Integer
-bsNot num0 =
-    complement num0
-
-bsOr :: Integer -> Integer -> Integer
-bsOr num0 num1 = 
-    let n0 = num0 /= 0
-        n1 = num1 /= 0
-    in case n0 || n1 of
-         True -> 1
-         False -> 0
-
-bsAnd :: Integer -> Integer -> Integer
-bsAnd num0 num1 = 
-    let n0 = num0 /= 0
-        n1 = num1 /= 0
-    in case n0 && n1 of
-         True -> 1
-         False -> 0
-
-bsXor :: Integer -> Integer -> Integer
-bsXor num0 num1 = 
-    let n0 = num0 /= 0
-        n1 = num1 /= 0
-    in case (n0 && (not n1)) || ((not n0) && n1) of
-         True -> 1
-         False -> 0
-
-bsNor :: Integer -> Integer -> Integer
-bsNor num0 num1 =
-    let n0 = num0 /= 0
-        n1 = num1 /= 0
-    in case not (n0 || n1) of
-         True -> 1
-         False -> 0
-
-bsNand :: Integer -> Integer -> Integer
-bsNand num0 num1 =
-    let n0 = num0 /= 0
-        n1 = num1 /= 0
-    in case not (n0 && n1) of
-         True -> 1
-         False -> 0
-
-bsXnor :: Integer -> Integer -> Integer
-bsXnor num0 num1 =
-    let n0 = num0 /= 0
-        n1 = num1 /= 0
-    in case not (n0 && (not n1)) || ((not n0) && n1) of
-         True -> 1
-         False -> 0
-
-bsBwOr :: Integer -> Integer -> Integer
-bsBwOr num0 num1 =
-    num0 .|. num1
-
-bsBwAnd :: Integer -> Integer -> Integer
-bsBwAnd num0 num1 =
-    num0 .&. num1
-
-bsBwXor :: Integer -> Integer -> Integer
-bsBwXor num0 num1 =
-    num0 `xor` num1
-
-bsBwNor :: Integer -> Integer -> Integer
-bsBwNor num0 num1 =
-    complement (num0 .|. num1)
-
-bsBwNand :: Integer -> Integer -> Integer
-bsBwNand num0 num1 =
-    complement (num0 .&. num1)
-
-bsBwXnor :: Integer -> Integer -> Integer
-bsBwXnor num0 num1 =
-    complement (num0 `xor` num1)
-
-bsShl :: Integer -> Integer -> Integer
-bsShl num0 num1 =
-    shiftL num0 (fromInteger num1)
-
-bsShr :: Integer -> Integer -> Integer
-bsShr num0 num1 =
-    shiftR num0 (fromInteger num1)
-
-bsCat :: [Integer] -> Integer
-bsCat numList =
-    foldl cat2 0 numList
-    where cat2 :: Integer -> Integer -> Integer
-          cat2 num0 num1 = 
-              let shiftSize = bsSize num1
-              in (shiftL num0 (fromInteger shiftSize)) + num1
-
-bsDup :: Integer -> Integer -> Integer
-bsDup num0 num1 =
-    bsCat (replicate (fromInteger num1) num0)
-
-bsFill :: Integer -> Integer -> Integer
-bsFill num0 num1 =
-    bsRange (bsDup num0 (num1 `div` (bsSize num0) + 1)) 0 num1
-
-bsIndex :: Integer -> Integer -> Integer
-bsIndex num0 num1 =
-    bsRange num0 num1 1
-
-bsRange :: Integer -> Integer -> Integer -> Integer
-bsRange num0 num1 num2 =
-    bsRead $ reverse $ take (fromInteger num2) $ drop (fromInteger num1) $ reverse $ bsShow num0
-
 indent :: Int -> String -> String
 indent tab source = 
     intercalate "\n" $ map ((replicate tab ' ')++) $ lines source
 
 data FuncType
-    = Unary (Integer -> Integer)
-    | Binary (Integer -> Integer -> Integer)
-    | Ternary (Integer -> Integer -> Integer -> Integer)
-    | VarArg ([Integer] -> Integer)
+    = Unary (String -> String)
+    | Binary (String -> String -> String)
+    | Ternary (String -> String -> String -> String)
+    | VarArg ([String] -> String)
 
-generateExprCt :: MVExpr -> [MVDefs] -> String
-generateExprCt (expr) (toplevel) =
-    bsShow $ evaluateCt expr
-    where evaluateCt :: MVExpr -> Integer
-          evaluateCt (Func name argList) =
-              let argResult = map evaluateCt argList
-              in case find (\ (x,_) -> name == x) funTable of
-                   Just (name,Unary func) -> if (length argResult) == 1
-                                             then func (head argResult)
-                                             else error ("Invalid number of arguments for function " ++ name ++ "!")
-                   Just (name,Binary func) -> if (length argResult) == 2
-                                              then func (head argResult) (head $ tail argResult)
-                                              else error ("Invalid number of arguments for function " ++ name ++ "!")
-                   Just (name,Ternary func) -> if (length argResult) == 3
-                                               then func (head argResult) (head $ tail argResult) (head $ tail $ tail argResult)
-                                               else error ("Invalid number of arguments for function " ++ name ++ "!")
-                   Just (name,VarArg func) -> func argResult
-                   Nothing -> error ("The function " ++ name ++ " does not exist!")
-              where funTable :: [(String,FuncType)]
-                    funTable = [("add",Binary bsAdd),
-                                ("sub",Binary bsSub),
-                                ("mul",Binary bsMul),
-                                ("div",Binary bsDiv),
-                                ("mod",Binary bsMod),
-                                ("neg",Unary bsNeg),
-                                ("pos",Unary bsPos),
-                                ("lt",Binary bsLt),
-                                ("lte",Binary bsLte),
-                                ("gt",Binary bsGt),
-                                ("gte",Binary bsGte),
-                                ("eq",Binary bsEq),
-                                ("neq",Binary bsNeq),
-                                ("not",Unary bsNot),
-                                ("or",Binary bsOr),
-                                ("and",Binary bsAnd),
-                                ("xor",Binary bsXor),
-                                ("nor",Binary bsNor),
-                                ("nand",Binary bsNand),
-                                ("xnor",Binary bsXnor),
-                                ("bwor",Binary bsBwOr),
-                                ("bwand",Binary bsBwAnd),
-                                ("bwxor",Binary bsBwXor),
-                                ("bwnor",Binary bsBwNor),
-                                ("bwnand",Binary bsBwNand),
-                                ("bwxnor",Binary bsBwXnor),
-                                ("shl",Binary bsShl),
-                                ("shr",Binary bsShr),
-                                ("cat",VarArg bsCat),
-                                ("dup",Binary bsDup),
-                                ("fill",Binary bsFill),
-                                ("index",Binary bsIndex),
-                                ("range",Ternary bsRange)]
-          evaluateCt (Path inst name) =
-              error ("Can't reference path " ++ inst ++ " " ++ name ++ " in constant context!")
-          evaluateCt (Symb name) =
-              case (find (\ (Def fName _ _) -> fName == name) toplevel) of
-                Just (Def defName defValue defBuiltin) -> evaluateCt defValue
-                Nothing -> error ("Can't find " ++ name)
-          evaluateCt (Numb value) = 
-              bsRead value
+
+generateExpr :: MVExpr -> [MVDefs] -> String
+generateExpr (Func name argList) (toplevel) =
+    let argResult = map (flip generateExpr $ toplevel) argList
+    in case find (\ (x,_) -> name == x) funTable of
+         Just (name,Unary func) -> if (length argResult) == 1
+                                   then func (head argResult)
+                                   else error ("Invalid number of arguments for function " ++ name ++ "!")
+         Just (name,Binary func) -> if (length argResult) == 2
+                                    then func (head argResult) (head $ tail argResult)
+                                    else error ("Invalid number of arguments for function " ++ name ++ "!")
+         Just (name,Ternary func) -> if (length argResult) == 3
+                                     then func (head argResult) (head $ tail argResult) (head $ tail $ tail argResult)
+                                     else error ("Invalid number of arguments for function " ++ name ++ "!")
+         Just (name,VarArg func) -> func argResult
+         _ -> error ("The function " ++ name ++ " does not exist!")
+    where funTable :: [(String,FuncType)]
+          funTable = [("add",    VarArg  (genOperV "+")),
+                      ("sub",    VarArg  (genOperV "-")),
+                      ("mul",    VarArg  (genOperV "*")),
+                      ("div",    VarArg  (genOperV "/")),
+                      ("mod",    VarArg  (genOperV "%")),
+                      ("neg",    Unary   (genOperU "+")),
+                      ("pos",    Unary   (genOperU "-")),
+                      ("lt",     Binary  (genOperB "<")),
+                      ("lte",    Binary  (genOperB "<=")),
+                      ("gt",     Binary  (genOperB ">")),
+                      ("gte",    Binary  (genOperB ">=")),
+                      ("eq",     Binary  (genOperB "==")),
+                      ("neq",    Binary  (genOperB "!=")),
+                      ("not",    Unary   (genOperU "!")),
+                      ("or",     VarArg  (genOperV "||")),
+                      ("and",    VarArg  (genOperV "&&")),
+                      ("xor",    VarArg  (genXor)),
+                      ("nor",    VarArg  (genOperU "!" . genOperV "||")),
+                      ("nand",   VarArg  (genOperU "!" . genOperV "&&")),
+                      ("xnor",   VarArg  (genOperU "!" . genXor)),
+                      ("bwnot",  Unary   (genOperU "~")),
+                      ("bwor",   VarArg  (genOperV "|")),
+                      ("bwand",  VarArg  (genOperV "&")),
+                      ("bwxor",  VarArg  (genOperV "^")),
+                      ("bwnor",  VarArg  (genOperU "~" . genOperV "|")),
+                      ("bwnand", VarArg  (genOperU "~" . genOperV "&")),
+                      ("bwxnor", VarArg  (genOperV "~^")),
+                      ("shl",    Binary  (genOperB "<<")),
+                      ("shr",    Binary  (genOperB ">>")),
+                      ("cat",    VarArg  (genEnclose "{" "}" . genOperV ",")),
+                      ("index",  Binary  (genIndex)),
+                      ("range",  Ternary (genRange))]
+
+          genOperU :: String -> String -> String
+          genOperU oper arg =
+              oper ++ " " ++ (genParens arg)
+
+          genOperB :: String -> String -> String -> String
+          genOperB oper arg0 arg1 =
+              (genParens arg0) ++ " " ++ oper ++ " " ++ (genParens arg1)
+
+          genOperV :: String -> [String] -> String
+          genOperV oper argList =
+              intercalate (" " ++ oper ++ " ") $ map genParens argList
+
+          genEnclose :: String -> String -> String -> String
+          genEnclose parens0 parens1 arg =
+              parens0 ++ arg ++ parens1
+
+          genParens :: String -> String
+          genParens arg =
+              genEnclose "(" ")" arg
+
+          genXor :: [String] -> String
+          genXor argList = 
+              foldl genXor2 (head argList) (tail argList)
+              where genXor2 :: String -> String -> String
+                    genXor2 arg0 arg1 =
+                        let arg0p = genParens arg0
+                            arg1p = genParens arg1
+                        in 
+                          (genParens (arg0p ++ " && " ++ (genParens ("!" ++ arg1p)))) ++ " || " ++ (genParens ((genParens ("!" ++ arg0p)) ++ " && " ++ arg1p))
+
+          genIndex :: String -> String -> String
+          genIndex arg index =
+              (genParens arg) ++ "[" ++ index ++ "]"
+
+          genRange :: String -> String -> String -> String
+          genRange arg beg end =
+              (genParens arg) ++ "[" ++ beg ++ ":" ++ end ++ "]"
+          
+generateExpr (Path inst name) (toplevel) =
+    inst ++ "_" ++ name
+generateExpr (Symb name) (toplevel) =
+    case (find testName toplevel) of
+      Just (Def defName defValue defBuiltin) -> generateExpr defValue toplevel
+      _ -> error ("Can't find " ++ name)
+    where testName :: MVDefs -> Bool
+          testName (Def testName testValue testBuiltin) =
+              testName == name
+          testName _ = False
+
+generateExpr (Numb value) (toplevel) =
+    "'b" ++ value
 
 generateDefs :: MVDefs -> [MVDefs] -> Int -> String
 generateDefs (Def name value builtin) (toplevel) (tab) = 
-    indent tab $ "`define " ++ name ++ " " ++ (generateExprCt value toplevel)
+    indent tab $ "`define " ++ name ++ " " ++ (generateExpr value toplevel)
 generateDefs (Mod name attrList inList outList ioList instList builtin) (toplevel) (tab) =
     indent tab $ "module " ++ name ++ "();" ++ "\n" ++ "endmodule"
 generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (tab) =
@@ -589,29 +442,29 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
           genAttrs = unlines $ map genAttr attrList
               where genAttr :: MVUnitFsmAttr -> String
                     genAttr (FsmAttr name) =
-                        indent 2 $ "parameter " ++ name ++ ";"
+                        indent 2 $ "parameter " ++ name ++ " = 0;"
 
           genIns :: String
           genIns = unlines $ map genIn inList
               where genIn :: MVUnitFsmIn -> String
                     genIn (FsmIn name size) =
-                        indent 2 $ "input wire[0:" ++ (generateExprCt size toplevel) ++ "-1] " ++ name ++ ";"
+                        indent 2 $ "input wire[0:" ++ (generateExpr size toplevel) ++ "-1] " ++ name ++ ";"
 
           genOuts :: String
           genOuts = unlines $ map genOut outList
               where genOut :: MVUnitFsmOut -> String
                     genOut (FsmOut name size offset) = 
-                        indent 2 $ "output wire[0:" ++ (generateExprCt size toplevel) ++ "-1] " ++ name ++ ";\n" ++
-                                   "assign " ++ name ++ " = fsm_output[" ++ (generateExprCt offset toplevel) ++ ":" ++ (generateExprCt size toplevel) ++ "];//wrong"
+                        indent 2 $ "output wire[0:" ++ (generateExpr size toplevel) ++ "-1] " ++ name ++ ";\n" ++
+                                   "assign " ++ name ++ " = fsm_output[" ++ (generateExpr offset toplevel) ++ ":" ++ (generateExpr size toplevel) ++ "];//wrong"
           
-compile :: FilePath -> IO ()
+compile :: FilePath -> IO String
 compile path
     = do fileContents <- readFile path
          
          case parse (lexparser (many defs)) "" fileContents of
            Left err -> do putStr "syntax error at "
-                          print err
-           Right res -> putStrLn (intercalate "\n\n" (map (\ x -> generateDefs x res 0) res))
+                          return (show err)
+           Right res -> return $ intercalate "\n\n" (map (\ x -> generateDefs x res 0) res)
     where lexparser parser = do whiteSpace lexer
                                 res <- parser
                                 eof
