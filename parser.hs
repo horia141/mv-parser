@@ -321,7 +321,8 @@ indent tab source =
     intercalate "\n" $ map ((replicate tab ' ')++) $ lines source
 
 data FuncType
-    = Unary (String -> String)
+    = Constant (String)
+    | Unary (String -> String)
     | Binary (String -> String -> String)
     | Ternary (String -> String -> String -> String)
     | VarArg ([String] -> String)
@@ -331,6 +332,9 @@ generateExpr :: MVExpr -> [MVDefs] -> String
 generateExpr (Func name argList) (toplevel) =
     let argResult = map (flip generateExpr $ toplevel) argList
     in case find (\ (x,_) -> name == x) funTable of
+         Just (name,Constant func) -> if (length argResult) == 0
+                                      then func
+                                      else error ("Invalid number of arguments for function " ++ name ++ "!")
          Just (name,Unary func) -> if (length argResult) == 1
                                    then func (head argResult)
                                    else error ("Invalid number of arguments for function " ++ name ++ "!")
@@ -343,38 +347,39 @@ generateExpr (Func name argList) (toplevel) =
          Just (name,VarArg func) -> func argResult
          _ -> error ("The function " ++ name ++ " does not exist!")
     where funTable :: [(String,FuncType)]
-          funTable = [("add",    VarArg  (genOperV "+")),
-                      ("sub",    VarArg  (genOperV "-")),
-                      ("mul",    VarArg  (genOperV "*")),
-                      ("div",    VarArg  (genOperV "/")),
-                      ("mod",    VarArg  (genOperV "%")),
-                      ("neg",    Unary   (genOperU "+")),
-                      ("pos",    Unary   (genOperU "-")),
-                      ("lt",     Binary  (genOperB "<")),
-                      ("lte",    Binary  (genOperB "<=")),
-                      ("gt",     Binary  (genOperB ">")),
-                      ("gte",    Binary  (genOperB ">=")),
-                      ("eq",     Binary  (genOperB "==")),
-                      ("neq",    Binary  (genOperB "!=")),
-                      ("not",    Unary   (genOperU "!")),
-                      ("or",     VarArg  (genOperV "||")),
-                      ("and",    VarArg  (genOperV "&&")),
-                      ("xor",    VarArg  (genXor)),
-                      ("nor",    VarArg  (genOperU "!" . genOperV "||")),
-                      ("nand",   VarArg  (genOperU "!" . genOperV "&&")),
-                      ("xnor",   VarArg  (genOperU "!" . genXor)),
-                      ("bwnot",  Unary   (genOperU "~")),
-                      ("bwor",   VarArg  (genOperV "|")),
-                      ("bwand",  VarArg  (genOperV "&")),
-                      ("bwxor",  VarArg  (genOperV "^")),
-                      ("bwnor",  VarArg  (genOperU "~" . genOperV "|")),
-                      ("bwnand", VarArg  (genOperU "~" . genOperV "&")),
-                      ("bwxnor", VarArg  (genOperV "~^")),
-                      ("shl",    Binary  (genOperB "<<")),
-                      ("shr",    Binary  (genOperB ">>")),
-                      ("cat",    VarArg  (genEnclose "{" "}" . genOperV ",")),
-                      ("index",  Binary  (genIndex)),
-                      ("range",  Ternary (genRange))]
+          funTable = [("add",    VarArg   (genOperV "+")),
+                      ("sub",    VarArg   (genOperV "-")),
+                      ("mul",    VarArg   (genOperV "*")),
+                      ("div",    VarArg   (genOperV "/")),
+                      ("mod",    VarArg   (genOperV "%")),
+                      ("neg",    Unary    (genOperU "+")),
+                      ("pos",    Unary    (genOperU "-")),
+                      ("lt",     Binary   (genOperB "<")),
+                      ("lte",    Binary   (genOperB "<=")),
+                      ("gt",     Binary   (genOperB ">")),
+                      ("gte",    Binary   (genOperB ">=")),
+                      ("eq",     Binary   (genOperB "==")),
+                      ("neq",    Binary   (genOperB "!=")),
+                      ("not",    Unary    (genOperU "!")),
+                      ("or",     VarArg   (genOperV "||")),
+                      ("and",    VarArg   (genOperV "&&")),
+                      ("xor",    VarArg   (genXor)),
+                      ("nor",    VarArg   (genOperU "!" . genOperV "||")),
+                      ("nand",   VarArg   (genOperU "!" . genOperV "&&")),
+                      ("xnor",   VarArg   (genOperU "!" . genXor)),
+                      ("bwnot",  Unary    (genOperU "~")),
+                      ("bwor",   VarArg   (genOperV "|")),
+                      ("bwand",  VarArg   (genOperV "&")),
+                      ("bwxor",  VarArg   (genOperV "^")),
+                      ("bwnor",  VarArg   (genOperU "~" . genOperV "|")),
+                      ("bwnand", VarArg   (genOperU "~" . genOperV "&")),
+                      ("bwxnor", VarArg   (genOperV "~^")),
+                      ("shl",    Binary   (genOperB "<<")),
+                      ("shr",    Binary   (genOperB ">>")),
+                      ("cat",    VarArg   (genEnclose "{" "}" . genOperV ",")),
+                      ("index",  Binary   (genIndex)),
+                      ("range",  Ternary  (genRange)),
+                      ("else",   Constant (genElse))]
 
           genOperU :: String -> String -> String
           genOperU oper arg =
@@ -413,13 +418,16 @@ generateExpr (Func name argList) (toplevel) =
           genRange :: String -> String -> String -> String
           genRange arg beg end =
               (genParens arg) ++ "[" ++ beg ++ ":" ++ end ++ "]"
+
+          genElse :: String
+          genElse = "1"
           
 generateExpr (Path inst name) (toplevel) =
     inst ++ "_" ++ name
 generateExpr (Symb name) (toplevel) =
     case (find testName toplevel) of
       Just (Def defName defValue defBuiltin) -> generateExpr defValue toplevel
-      _ -> error ("Can't find " ++ name)
+      _ -> name
     where testName :: MVDefs -> Bool
           testName (Def testName testValue testBuiltin) =
               testName == name
@@ -446,8 +454,8 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
                    genIns ++ "\n" ++ 
                    genOuts ++ "\n" ++
                    (genInternalRegs stateBits outputBits) ++ "\n" ++
-                   (genStateDefines states) ++ "\n" ++
-                   (genStateChanges states) ++ "\n" ++
+                   (genStateDefines states) ++ "\n\n" ++
+                   (genStateChanges states) ++ "\n\n" ++
                    (genStateOutputs states) ++ "\n" ++
                    "endmodule")
     where genParamList :: String
@@ -484,7 +492,45 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
                         "`define " ++ fullName ++ " " ++ (show code)
 
           genStateChanges :: [(String,(String,MVExpr,Integer))] -> String
-          genStateChanges states = ""
+          genStateChanges states = 
+              let statesMap = Map.fromList states
+              in indent 2 $ "always @ (posedge clock) begin" ++ "\n" ++
+                     (indent 2 $ "if (reset) begin") ++ "\n" ++ 
+                     (indent 4 $ "fsm_state <= `" ++ (let (fullName,_,_) = (statesMap Map.! "Reset") in fullName) ++ ";") ++ "\n" ++
+                     (indent 2 $ "end") ++ "\n" ++
+                     (indent 2 $ "else begin") ++ "\n" ++
+                     (indent 4 $ "case (fsm_state)") ++ "\n" ++
+                     (indent 4 $ unlines $ map (genStateChange statesMap) stateList) ++ "\n" ++
+                     (indent 4 $ "endcase") ++ "\n" ++
+                     (indent 2 $ "end") ++ "\n" ++
+                     "end"
+              where genStateChange :: Map String (String,MVExpr,Integer) -> MVUnitFsmState -> String
+                    genStateChange (statesMap) (FsmState name output changeList) = 
+                        let (fullName,_,_) = statesMap Map.! name
+                        in indent 2 $ "`" ++ fullName ++ ":begin" ++ "\n" ++
+                           (indent 2 $ genChangeList changeList) ++ "\n" ++
+                           "end"
+                        where genChangeList :: [MVUnitFsmChange] -> String
+                              genChangeList ((FsmChange state (Func "else" [])):[]) =
+                                  let (stateFullName,_,_) = statesMap Map.! state
+                                  in "fsm_state <= `" ++ stateFullName ++ ";"
+                              genChangeList ((FsmChange state expr):restChangeList) =
+                                  let (stateFullName,_,_) = statesMap Map.! state
+                                  in "if (" ++ (generateExpr expr toplevel) ++ ") begin" ++ "\n" ++
+                                     (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";") ++ "\n" ++
+                                     "end" ++ "\n" ++ (unlines $ map genChange restChangeList)
+                                  where genChange :: MVUnitFsmChange -> String
+                                        genChange (FsmChange state (Func "else" [])) =
+                                            let (stateFullName,_,_) = statesMap Map.! state
+                                            in "else begin" ++ "\n" ++
+                                               (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";") ++ "\n" ++
+                                               "end"
+                                        genChange (FsmChange state expr) = 
+                                            let (stateFullName,_,_) = statesMap Map.! state
+                                            in "else" ++ "\n" ++
+                                               "if (" ++ (generateExpr expr toplevel) ++ ") begin" ++ "\n" ++
+                                               (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";") ++ "\n" ++
+                                               "end"
 
           genStateOutputs :: [(String,(String,MVExpr,Integer))] -> String
           genStateOutputs states = indent 2 $ "always @ (posedge clock) begin" ++ "\n" ++
