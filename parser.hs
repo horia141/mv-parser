@@ -3,12 +3,16 @@ module Main where
 import Data.List
 import Data.Bits
 import Data.Char
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Numeric
 
 import Text.ParserCombinators.Parsec
 import Text.ParserCombinators.Parsec.Expr
 import Text.ParserCombinators.Parsec.Token
 import Text.ParserCombinators.Parsec.Language
+
+import System.Environment
 
 data MVExpr
     = Func {
@@ -430,11 +434,22 @@ generateDefs (Def name value builtin) (toplevel) (tab) =
 generateDefs (Mod name attrList inList outList ioList instList builtin) (toplevel) (tab) =
     indent tab $ "module " ++ name ++ "();" ++ "\n" ++ "endmodule"
 generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (tab) =
-    indent tab ("module " ++ name ++ "(" ++ genParamList ++ ");" ++ "\n" ++
-                genAttrs ++ "\n" ++ 
-                genIns ++ "\n" ++ 
-                genOuts ++ "\n" ++
-                "endmodule")
+    let states     = zip (map fsmStateName stateList) $ zip3 (map ((name++) . ("_"++) . fsmStateName) stateList) (map fsmStateOutput stateList) [0..(genericLength stateList)-1]
+        stateBits  = if (length stateList) > 1
+                     then ceiling $ log (genericLength stateList) / log 2
+                     else 1
+        outputBits = if not $ null stateList
+                     then genericLength $ numbValue $ fsmStateOutput $ head stateList
+                     else 1
+    in indent tab ("module " ++ name ++ "(" ++ genParamList ++ ");" ++ "\n" ++
+                   genAttrs ++ "\n" ++ 
+                   genIns ++ "\n" ++ 
+                   genOuts ++ "\n" ++
+                   (genInternalRegs stateBits outputBits) ++ "\n" ++
+                   (genStateDefines states) ++ "\n" ++
+                   (genStateChanges states) ++ "\n" ++
+                   (genStateOutputs states) ++ "\n" ++
+                   "endmodule")
     where genParamList :: String
           genParamList = intercalate "," ((map fsmInName inList) ++ (map fsmOutName outList))
 
@@ -448,15 +463,39 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
           genIns = unlines $ map genIn inList
               where genIn :: MVUnitFsmIn -> String
                     genIn (FsmIn name size) =
-                        indent 2 $ "input wire[0:" ++ (generateExpr size toplevel) ++ "-1] " ++ name ++ ";"
+                        indent 2 $ "input wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";"
 
           genOuts :: String
           genOuts = unlines $ map genOut outList
               where genOut :: MVUnitFsmOut -> String
                     genOut (FsmOut name size offset) = 
-                        indent 2 $ "output wire[0:" ++ (generateExpr size toplevel) ++ "-1] " ++ name ++ ";\n" ++
-                                   "assign " ++ name ++ " = fsm_output[" ++ (generateExpr offset toplevel) ++ ":" ++ (generateExpr size toplevel) ++ "];//wrong"
-          
+                        indent 2 $ "output wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";\n" ++
+                                   "assign " ++ name ++ " = fsm_output[" ++ (generateExpr (Func "sub" [(Func "add" [offset,size]), (Numb "1")]) toplevel) ++ ":" ++ (generateExpr offset toplevel) ++ "];"
+
+          genInternalRegs :: Integer -> Integer -> String
+          genInternalRegs stateBits outputBits = 
+              unlines [indent 2 $ "reg[" ++ (show outputBits) ++ "-1:0] fsm_output;",
+                       indent 2 $ "reg[" ++ (show stateBits) ++ "-1:0] fsm_state;"]
+
+          genStateDefines :: [(String,(String,MVExpr,Integer))] -> String
+          genStateDefines states = indent 2 $ unlines $ map genStateDefine states
+              where genStateDefine :: (String,(String,MVExpr,Integer)) -> String
+                    genStateDefine (stateName,(fullName,output,code)) =
+                        "`define " ++ fullName ++ " " ++ (show code)
+
+          genStateChanges :: [(String,(String,MVExpr,Integer))] -> String
+          genStateChanges states = ""
+
+          genStateOutputs :: [(String,(String,MVExpr,Integer))] -> String
+          genStateOutputs states = indent 2 $ "always @ (posedge clock) begin" ++ "\n" ++
+                                   (indent 2 $ "case (fsm_state)") ++ "\n" ++
+                                   (indent 2 $ unlines $ map genStateOutput states) ++ "\n" ++
+                                   (indent 2 $ "endcase") ++ "\n" ++
+                                  "end"
+              where genStateOutput :: (String,(String,MVExpr,Integer)) -> String
+                    genStateOutput (stateName,(fullName,output,code)) =
+                        indent 2 $ "`" ++ fullName ++ ": fsm_output <= " ++ (generateExpr output toplevel) ++ ";"
+
 compile :: FilePath -> IO String
 compile path
     = do fileContents <- readFile path
@@ -470,3 +509,11 @@ compile path
                                 eof
                                 return res
 
+main :: IO ()
+main =
+    do args <- getArgs
+
+       case args of
+         [path] -> do result <- compile path
+                      putStrLn result
+         _      -> putStrLn "Program requires one argument!"
