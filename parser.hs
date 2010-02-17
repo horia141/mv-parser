@@ -13,6 +13,7 @@ import Text.ParserCombinators.Parsec.Token
 import Text.ParserCombinators.Parsec.Language
 
 import System.Environment
+import System.Console.GetOpt
 
 data MVExpr
     = Func {
@@ -419,7 +420,7 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                 genIns ++ "\n" ++
                 genOuts ++ "\n" ++
                 genInsts ++ "\n" ++
-                "endmodule")
+                "endmodule // " ++ name)
     where genParamList :: String
           genParamList = intercalate "," ((map modInName inList) ++ (map modOutName outList))
 
@@ -452,13 +453,15 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                                            kind ++ " #(" ++ "\n" ++ 
                                            (indent 4 $ (genInstModAttr modAttrList) ++ ")") ++ "\n" ++
                                            (indent 2 $ name ++ "(" ++ "\n" ++ 
-                                                       (indent 2 $ genInstModIn modInList) ++ ");"))
+                                                       (indent 2 $ genInstModIn modInList) ++ ",\n" ++ 
+                                                       (indent 2 $ genInstModOut modOutList) ++ ");"))
                              Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> 
                                  indent 2 ((genWireFsmOut fsmOutList) ++ "\n" ++
                                            kind ++ " #(" ++ "\n" ++ 
                                            (indent 4 $ (genInstFsmAttr fsmAttrList) ++ ")") ++ "\n" ++
                                            (indent 2 $ name ++ "(" ++ "\n" ++
-                                                       (indent 2 $ genInstFsmIn fsmInList) ++ ");"))
+                                                       (indent 2 $ genInstFsmIn fsmInList) ++ ",\n" ++ 
+                                                       (indent 2 $ genInstFsmOut fsmOutList) ++ ");"))
                              _ -> error ("Unknown module " ++ kind ++ "!")
                         where genInstModAttr :: [MVUnitModAttr] -> String
                               genInstModAttr (modAttrList) = 
@@ -473,7 +476,7 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                               genInstModIn (modInList) = 
                                   if (length modInList) == (length nvPairList)
                                   then intercalate ",\n" $ map genInExpr nvPairList
-                                  else error ("Invalid input/inout list for " ++ kind ++ " " ++ name)
+                                  else error ("Invalid input list for " ++ kind ++ " " ++ name)
                                   where genInExpr :: MVUnitModNVPair -> String
                                         genInExpr (ModNVPair name value) =
                                             case find testIn modInList of
@@ -481,6 +484,18 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                                               Nothing -> error (kind ++ " " ++ name ++ " does not have an input named " ++ name ++ "!")
                                             where testIn :: MVUnitModIn -> Bool
                                                   testIn (ModIn inName _) = name == inName
+
+                              genInstModOut :: [MVUnitModOut] -> String
+                              genInstModOut (modOutList) = intercalate ",\n" $ map genOut modOutList
+                                      where genOut :: MVUnitModOut -> String
+                                            genOut (ModOut outName outSize outSink) = 
+                                                "." ++ outName ++ "(" ++ name ++ "_" ++ outName ++ ")"
+
+                              genWireModOut :: [MVUnitModOut] -> String
+                              genWireModOut (modOutList) = unlines $ map genWireOut modOutList
+                                  where genWireOut :: MVUnitModOut -> String
+                                        genWireOut (ModOut outName outSize outSink) = 
+                                            "wire [" ++ (generateExpr (Func "sub" [outSize, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
 
                               genInstFsmAttr :: [MVUnitFsmAttr] -> String
                               genInstFsmAttr (fsmAttrList) = 
@@ -503,11 +518,11 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                                             where testIn :: MVUnitFsmIn -> Bool
                                                   testIn (FsmIn inName _) = name == inName
 
-                              genWireModOut :: [MVUnitModOut] -> String
-                              genWireModOut (modOutList) = unlines $ map genWireOut modOutList
-                                  where genWireOut :: MVUnitModOut -> String
-                                        genWireOut (ModOut outName outSize outSink) = 
-                                            "wire [" ++ (generateExpr (Func "sub" [outSize, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
+                              genInstFsmOut :: [MVUnitFsmOut] -> String
+                              genInstFsmOut (fsmOutList) = intercalate ",\n" $ map genOut fsmOutList
+                                  where genOut :: MVUnitFsmOut -> String
+                                        genOut (FsmOut outName outSize outSink) =
+                                            "." ++ outName ++ "(" ++ name ++ "_" ++ outName ++ ")"
 
                               genWireFsmOut :: [MVUnitFsmOut] -> String
                               genWireFsmOut (fsmOutList) = unlines $ map genWireOut fsmOutList
@@ -530,7 +545,7 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
                    (genStateDefines states) ++ "\n\n" ++
                    (genStateChanges states) ++ "\n\n" ++
                    (genStateOutputs states) ++ "\n" ++
-                   "endmodule")
+                   "endmodule // " ++ name)
     where genParamList :: String
           genParamList = intercalate "," ((map fsmInName inList) ++ (map fsmOutName outList))
 
@@ -629,12 +644,13 @@ toplevel = Map.fromList [("Reg",Mod "Reg"
 compile :: FilePath -> IO String
 compile path
     = do fileContents <- readFile path
+         libmvContents <- readFile "libmv.v"
          
          case parse (lexparser (many defs)) "" fileContents of
            Left err -> do putStr "syntax error at "
                           return (show err)
            Right res -> return $ let toplevel' = Map.union toplevel $ Map.fromList $ zip (map defsName res) res
-                                 in intercalate "\n\n" (map (\ x -> generateDefs x toplevel' 0) res)
+                                 in libmvContents ++ (intercalate "\n\n" (map (\ x -> generateDefs x toplevel' 0) res))
     where lexparser parser = do whiteSpace lexer
                                 res <- parser
                                 eof
