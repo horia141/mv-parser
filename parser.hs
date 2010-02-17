@@ -37,7 +37,6 @@ data MVDefs
         modAttrList :: [MVUnitModAttr],
         modInList :: [MVUnitModIn],
         modOutList :: [MVUnitModOut],
-        modIoList :: [MVUnitModIo],
         modInstList :: [MVUnitModInst],
         modBuiltin :: Bool}
     | Fsm {
@@ -65,14 +64,6 @@ data MVUnitModOut
         modOutName :: String,
         modOutSize :: MVExpr,
         modOutSink :: MVExpr}
-    deriving (Show)
-
-data MVUnitModIo
-    = ModIo {
-        modIoName :: String,
-        modIoSize :: MVExpr,
-        modIoSink :: MVExpr,
-        modIoWriteEn :: MVExpr}
     deriving (Show)
 
 data MVUnitModInst
@@ -212,10 +203,9 @@ dmod = do reserved lexer "mod"
           attrList <- enclose squares modAttr
           inList <- enclose squares modIn
           outList <- enclose squares modOut
-          ioList <- enclose squares modIo
           instList <- enclose braces modInst
 
-          return (Mod name attrList inList outList ioList instList False)
+          return (Mod name attrList inList outList instList False)
 
 dfsm :: Parser MVDefs
 dfsm = do reserved lexer "fsm"
@@ -246,16 +236,6 @@ modOut = do name <- identifier lexer
                                             return (size,sink))
 
             return (ModOut name size sink)
-
-modIo :: Parser MVUnitModIo
-modIo = do name <- identifier lexer
-           (size,sink,writeEn) <- parens lexer (do size <- expr
-                                                   sink <- expr
-                                                   writeEn <- expr
-
-                                                   return (size,sink,writeEn))
-
-           return (ModIo name size sink writeEn)
 
 modInst :: Parser MVUnitModInst
 modInst = do kind <- identifier lexer
@@ -433,16 +413,15 @@ generateExpr (Numb value) (toplevel) =
 generateDefs :: MVDefs -> Map String MVDefs -> Int -> String
 generateDefs (Def name value builtin) (toplevel) (tab) = 
     indent tab $ "`define " ++ name ++ " " ++ (generateExpr value toplevel)
-generateDefs (Mod name attrList inList outList ioList instList builtin) (toplevel) (tab) =
+generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab) =
     indent tab ("module " ++ name ++ "(" ++ genParamList ++ ");" ++ "\n" ++ 
                 genAttrs ++ "\n" ++
                 genIns ++ "\n" ++
                 genOuts ++ "\n" ++
-                genIos ++ "\n" ++
                 genInsts ++ "\n" ++
                 "endmodule")
     where genParamList :: String
-          genParamList = intercalate "," ((map modInName inList) ++ (map modOutName outList) ++ (map modIoName ioList))
+          genParamList = intercalate "," ((map modInName inList) ++ (map modOutName outList))
 
           genAttrs :: String
           genAttrs = unlines $ map genAttr attrList
@@ -463,25 +442,17 @@ generateDefs (Mod name attrList inList outList ioList instList builtin) (topleve
                         indent 2 $ "output wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";" ++ "\n" ++
                                    "assign " ++ name ++ " = " ++ (generateExpr sink toplevel) ++ ";"
 
-          genIos :: String
-          genIos = unlines $ map genIo ioList
-              where genIo :: MVUnitModIo -> String
-                    genIo (ModIo name size sink writeEn) =
-                        indent 2 $ "inout wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";" ++ "\n" ++
-                                   "assign " ++ name ++ " = " ++ (generateExpr writeEn toplevel) ++ " ? " ++ (generateExpr sink toplevel) ++ " : {" ++ (generateExpr size toplevel) ++ "{1'bz}};"
-
           genInsts :: String
           genInsts = unlines $ map genInst instList
               where genInst :: MVUnitModInst -> String
                     genInst (ModInst kind name attrList nvPairList) =
                         case Map.lookup kind toplevel of
-                             Just (Mod modName modAttrList modInList modOutList modIoList _ _) -> 
+                             Just (Mod modName modAttrList modInList modOutList _ _) -> 
                                  indent 2 ((genWireModOut modOutList) ++ "\n" ++ 
-                                           (genWireModIo modIoList) ++ "\n" ++
                                            kind ++ " #(" ++ "\n" ++ 
                                            (indent 4 $ (genInstModAttr modAttrList) ++ ")") ++ "\n" ++
                                            (indent 2 $ name ++ "(" ++ "\n" ++ 
-                                                       (indent 2 $ genInstModInIo modInList modIoList) ++ ");"))
+                                                       (indent 2 $ genInstModIn modInList) ++ ");"))
                              Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> 
                                  indent 2 ((genWireFsmOut fsmOutList) ++ "\n" ++
                                            kind ++ " #(" ++ "\n" ++ 
@@ -498,24 +469,18 @@ generateDefs (Mod name attrList inList outList ioList instList builtin) (topleve
                                         genAttrExpr (ModAttr name) (expr) =
                                             "." ++ name ++ "(" ++ (generateExpr expr toplevel) ++ ")"
 
-                              genInstModInIo :: [MVUnitModIn] -> [MVUnitModIo] -> String
-                              genInstModInIo (modInList) (modIoList) = 
-                                  if (length modInList) + (length modIoList) == (length nvPairList)
-                                  then intercalate ",\n" $ map genInIoExpr nvPairList
+                              genInstModIn :: [MVUnitModIn] -> String
+                              genInstModIn (modInList) = 
+                                  if (length modInList) == (length nvPairList)
+                                  then intercalate ",\n" $ map genInExpr nvPairList
                                   else error ("Invalid input/inout list for " ++ kind ++ " " ++ name)
-                                  where genInIoExpr :: MVUnitModNVPair -> String
-                                        genInIoExpr (ModNVPair name value) =
+                                  where genInExpr :: MVUnitModNVPair -> String
+                                        genInExpr (ModNVPair name value) =
                                             case find testIn modInList of
                                               Just _  -> "." ++ name ++ "(" ++ (generateExpr value toplevel) ++ ")"
-                                              Nothing -> 
-                                                  case find testIo modIoList of
-                                                    Just _  -> "." ++ name ++ "(" ++ (generateExpr value toplevel) ++ ")"
-                                                    Nothing -> error (kind ++ " " ++ name ++ " does not have an input or inout named " ++ name ++ "!")
+                                              Nothing -> error (kind ++ " " ++ name ++ " does not have an input named " ++ name ++ "!")
                                             where testIn :: MVUnitModIn -> Bool
                                                   testIn (ModIn inName _) = name == inName
-
-                                                  testIo :: MVUnitModIo -> Bool
-                                                  testIo (ModIo ioName _ _ _) = name == ioName
 
                               genInstFsmAttr :: [MVUnitFsmAttr] -> String
                               genInstFsmAttr (fsmAttrList) = 
@@ -543,12 +508,6 @@ generateDefs (Mod name attrList inList outList ioList instList builtin) (topleve
                                   where genWireOut :: MVUnitModOut -> String
                                         genWireOut (ModOut outName outSize outSink) = 
                                             "wire [" ++ (generateExpr (Func "sub" [outSize, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
-
-                              genWireModIo :: [MVUnitModIo] -> String
-                              genWireModIo (modIoList) = unlines $ map genWireIo modIoList
-                                  where genWireIo :: MVUnitModIo -> String
-                                        genWireIo (ModIo ioName ioSize ioSink ioWriteEn) = 
-                                            "wire [" ++ (generateExpr (Func "sub" [ioSize, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ ioName ++ ";"
 
                               genWireFsmOut :: [MVUnitFsmOut] -> String
                               genWireFsmOut (fsmOutList) = unlines $ map genWireOut fsmOutList
@@ -665,7 +624,6 @@ toplevel = Map.fromList [("Reg",Mod "Reg"
                                     ModIn "writeEn" (Numb "1")]
                                    [ModOut "data_o" (Symb "Size") (Symb "builtin")]
                                    []
-                                   []
                                    True)]
 
 compile :: FilePath -> IO String
@@ -683,7 +641,7 @@ compile path
                                 return res
           defsName :: MVDefs -> String
           defsName (Def name _ _) = name
-          defsName (Mod name _ _ _ _ _ _) = name
+          defsName (Mod name _ _ _ _ _) = name
           defsName (Fsm name _ _ _ _ _) = name
 
 main :: IO ()
