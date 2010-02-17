@@ -476,15 +476,18 @@ generateDefs (Mod name attrList inList outList ioList instList builtin) (topleve
                     genInst (ModInst kind name attrList nvPairList) =
                         case Map.lookup kind toplevel of
                              Just (Mod modName modAttrList modInList modOutList modIoList _ _) -> 
-                                 indent 2 $ kind ++ " #(" ++ "\n" ++ 
-                                            (indent 4 $ (genInstModAttr modAttrList) ++ ")") ++ "\n" ++
-                                            (indent 2 $ name ++ "(" ++ "\n" ++ 
-                                                        (indent 2 $ genInstModInIo modInList modIoList) ++ ");")
+                                 indent 2 ((genWireModOut modOutList) ++ "\n" ++ 
+                                           (genWireModIo modIoList) ++ "\n" ++
+                                           kind ++ " #(" ++ "\n" ++ 
+                                           (indent 4 $ (genInstModAttr modAttrList) ++ ")") ++ "\n" ++
+                                           (indent 2 $ name ++ "(" ++ "\n" ++ 
+                                                       (indent 2 $ genInstModInIo modInList modIoList) ++ ");"))
                              Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> 
-                                 indent 2 $ kind ++ " #(" ++ "\n" ++ 
-                                            (indent 4 $ (genInstFsmAttr fsmAttrList) ++ ")" ++ "\n" ++
-                                            (indent 2 $ name ++ "(" ++ "\n" ++
-                                                        (indent 2 $ genInstFsmIn fsmInList) ++ ");")
+                                 indent 2 ((genWireFsmOut fsmOutList) ++ "\n" ++
+                                           kind ++ " #(" ++ "\n" ++ 
+                                           (indent 4 $ (genInstFsmAttr fsmAttrList) ++ ")") ++ "\n" ++
+                                           (indent 2 $ name ++ "(" ++ "\n" ++
+                                                       (indent 2 $ genInstFsmIn fsmInList) ++ ");"))
                              _ -> error ("Unknown module " ++ kind ++ "!")
                         where genInstModAttr :: [MVUnitModAttr] -> String
                               genInstModAttr (modAttrList) = 
@@ -534,6 +537,24 @@ generateDefs (Mod name attrList inList outList ioList instList builtin) (topleve
                                               Nothing -> error (kind ++ " " ++ name ++ " does not have an input named " ++ name ++ "!")
                                             where testIn :: MVUnitFsmIn -> Bool
                                                   testIn (FsmIn inName _) = name == inName
+
+                              genWireModOut :: [MVUnitModOut] -> String
+                              genWireModOut (modOutList) = unlines $ map genWireOut modOutList
+                                  where genWireOut :: MVUnitModOut -> String
+                                        genWireOut (ModOut outName outSize outSink) = 
+                                            "wire [" ++ (generateExpr (Func "sub" [outSize, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
+
+                              genWireModIo :: [MVUnitModIo] -> String
+                              genWireModIo (modIoList) = unlines $ map genWireIo modIoList
+                                  where genWireIo :: MVUnitModIo -> String
+                                        genWireIo (ModIo ioName ioSize ioSink ioWriteEn) = 
+                                            "wire [" ++ (generateExpr (Func "sub" [ioSize, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ ioName ++ ";"
+
+                              genWireFsmOut :: [MVUnitFsmOut] -> String
+                              genWireFsmOut (fsmOutList) = unlines $ map genWireOut fsmOutList
+                                  where genWireOut :: MVUnitFsmOut -> String
+                                        genWireOut (FsmOut outName outSize outOffset) =
+                                            "wire [" ++ (generateExpr (Func "sub" [outSize, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
 generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (tab) =
     let states     = zip (map fsmStateName stateList) $ zip3 (map ((name++) . ("_"++) . fsmStateName) stateList) (map fsmStateOutput stateList) [0..(genericLength stateList)-1]
         stateBits  = if (length stateList) > 1
