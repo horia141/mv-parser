@@ -476,25 +476,64 @@ generateDefs (Mod name attrList inList outList ioList instList builtin) (topleve
                     genInst (ModInst kind name attrList nvPairList) =
                         case Map.lookup kind toplevel of
                              Just (Mod modName modAttrList modInList modOutList modIoList _ _) -> 
-                                 indent 2 $ kind ++ "#(" ++ (genInstModAttr modAttrList) ++ ")" ++ "\n" ++
+                                 indent 2 $ kind ++ " #(" ++ "\n" ++ 
+                                            (indent 4 $ (genInstModAttr modAttrList) ++ ")") ++ "\n" ++
                                             (indent 2 $ name ++ "(" ++ "\n" ++ 
                                                         (indent 2 $ genInstModInIo modInList modIoList) ++ ");")
                              Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> 
-                                 indent 2 $ kind ++ " #(" ++ (genInstFsmAttr fsmAttrList) ++ ")" ++ "\n" ++
+                                 indent 2 $ kind ++ " #(" ++ "\n" ++ 
+                                            (indent 4 $ (genInstFsmAttr fsmAttrList) ++ ")" ++ "\n" ++
                                             (indent 2 $ name ++ "(" ++ "\n" ++
                                                         (indent 2 $ genInstFsmIn fsmInList) ++ ");")
                              _ -> error ("Unknown module " ++ kind ++ "!")
                         where genInstModAttr :: [MVUnitModAttr] -> String
-                              genInstModAttr (modAttrList) = ""
+                              genInstModAttr (modAttrList) = 
+                                  if (length modAttrList) == (length attrList)
+                                  then intercalate ",\n" $ zipWith genAttrExpr modAttrList attrList
+                                  else error ("Invalid attribute list for " ++ kind ++ " " ++ name)
+                                  where genAttrExpr :: MVUnitModAttr -> MVExpr -> String
+                                        genAttrExpr (ModAttr name) (expr) =
+                                            "." ++ name ++ "(" ++ (generateExpr expr toplevel) ++ ")"
 
                               genInstModInIo :: [MVUnitModIn] -> [MVUnitModIo] -> String
-                              genInstModInIo (modInList) (modIoList) = ""
+                              genInstModInIo (modInList) (modIoList) = 
+                                  if (length modInList) + (length modIoList) == (length nvPairList)
+                                  then intercalate ",\n" $ map genInIoExpr nvPairList
+                                  else error ("Invalid input/inout list for " ++ kind ++ " " ++ name)
+                                  where genInIoExpr :: MVUnitModNVPair -> String
+                                        genInIoExpr (ModNVPair name value) =
+                                            case find testIn modInList of
+                                              Just _  -> "." ++ name ++ "(" ++ (generateExpr value toplevel) ++ ")"
+                                              Nothing -> 
+                                                  case find testIo modIoList of
+                                                    Just _  -> "." ++ name ++ "(" ++ (generateExpr value toplevel) ++ ")"
+                                                    Nothing -> error (kind ++ " " ++ name ++ " does not have an input or inout named " ++ name ++ "!")
+                                            where testIn :: MVUnitModIn -> Bool
+                                                  testIn (ModIn inName _) = name == inName
+
+                                                  testIo :: MVUnitModIo -> Bool
+                                                  testIo (ModIo ioName _ _ _) = name == ioName
 
                               genInstFsmAttr :: [MVUnitFsmAttr] -> String
-                              genInstFsmAttr (fsmAttrList) = ""
+                              genInstFsmAttr (fsmAttrList) = 
+                                  if (length fsmAttrList) == (length attrList)
+                                  then intercalate ",\n" $ zipWith genAttrExpr fsmAttrList attrList
+                                  else error ("Invalid attribute list for " ++ kind ++ " " ++ name)
+                                  where genAttrExpr (FsmAttr name) (expr) = 
+                                            "." ++ name ++ "(" ++ (generateExpr expr toplevel) ++ ")"
 
                               genInstFsmIn :: [MVUnitFsmIn] -> String
-                              genInstFsmIn (fsmInList) = ""
+                              genInstFsmIn (fsmInList) = 
+                                  if (length fsmInList) == (length nvPairList)
+                                  then intercalate ",\n" $ map genInExpr nvPairList
+                                  else error ("Invalid input list for " ++ kind ++ " " ++ name)
+                                  where genInExpr :: MVUnitModNVPair -> String
+                                        genInExpr (ModNVPair name value) = 
+                                            case find testIn fsmInList of
+                                              Just _  -> "." ++ name ++ "(" ++ (generateExpr value toplevel) ++ ")"
+                                              Nothing -> error (kind ++ " " ++ name ++ " does not have an input named " ++ name ++ "!")
+                                            where testIn :: MVUnitFsmIn -> Bool
+                                                  testIn (FsmIn inName _) = name == inName
 generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (tab) =
     let states     = zip (map fsmStateName stateList) $ zip3 (map ((name++) . ("_"++) . fsmStateName) stateList) (map fsmStateOutput stateList) [0..(genericLength stateList)-1]
         stateBits  = if (length stateList) > 1
