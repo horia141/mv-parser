@@ -328,7 +328,7 @@ data FuncType
     | VarArg ([String] -> String)
 
 
-generateExpr :: MVExpr -> [MVDefs] -> String
+generateExpr :: MVExpr -> Map String MVDefs -> String
 generateExpr (Func name argList) (toplevel) =
     let argResult = map (flip generateExpr $ toplevel) argList
     in case find (\ (x,_) -> name == x) funTable of
@@ -421,26 +421,80 @@ generateExpr (Func name argList) (toplevel) =
 
           genElse :: String
           genElse = "1"
-          
 generateExpr (Path inst name) (toplevel) =
     inst ++ "_" ++ name
 generateExpr (Symb name) (toplevel) =
-    case (find testName toplevel) of
+    case name `Map.lookup` toplevel of
       Just (Def defName defValue defBuiltin) -> generateExpr defValue toplevel
       _ -> name
-    where testName :: MVDefs -> Bool
-          testName (Def testName testValue testBuiltin) =
-              testName == name
-          testName _ = False
-
 generateExpr (Numb value) (toplevel) =
     "'b" ++ value
 
-generateDefs :: MVDefs -> [MVDefs] -> Int -> String
+generateDefs :: MVDefs -> Map String MVDefs -> Int -> String
 generateDefs (Def name value builtin) (toplevel) (tab) = 
     indent tab $ "`define " ++ name ++ " " ++ (generateExpr value toplevel)
 generateDefs (Mod name attrList inList outList ioList instList builtin) (toplevel) (tab) =
-    indent tab $ "module " ++ name ++ "();" ++ "\n" ++ "endmodule"
+    indent tab ("module " ++ name ++ "(" ++ genParamList ++ ");" ++ "\n" ++ 
+                genAttrs ++ "\n" ++
+                genIns ++ "\n" ++
+                genOuts ++ "\n" ++
+                genIos ++ "\n" ++
+                genInsts ++ "\n" ++
+                "endmodule")
+    where genParamList :: String
+          genParamList = intercalate "," ((map modInName inList) ++ (map modOutName outList) ++ (map modIoName ioList))
+
+          genAttrs :: String
+          genAttrs = unlines $ map genAttr attrList
+              where genAttr :: MVUnitModAttr -> String
+                    genAttr (ModAttr name) =
+                        indent 2 $ "parameter " ++ name ++ " = 0;"
+
+          genIns :: String
+          genIns = unlines $ map genIn inList
+              where genIn :: MVUnitModIn -> String
+                    genIn (ModIn name size) =
+                        indent 2 $ "input wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";"
+
+          genOuts :: String
+          genOuts = unlines $ map genOut outList
+              where genOut :: MVUnitModOut -> String
+                    genOut (ModOut name size sink) = 
+                        indent 2 $ "output wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";" ++ "\n" ++
+                                   "assign " ++ name ++ " = " ++ (generateExpr sink toplevel) ++ ";"
+
+          genIos :: String
+          genIos = unlines $ map genIo ioList
+              where genIo :: MVUnitModIo -> String
+                    genIo (ModIo name size sink writeEn) =
+                        indent 2 $ "inout wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";" ++ "\n" ++
+                                   "assign " ++ name ++ " = " ++ (generateExpr writeEn toplevel) ++ " ? " ++ (generateExpr sink toplevel) ++ " : {" ++ (generateExpr size toplevel) ++ "{1'bz}};"
+
+          genInsts :: String
+          genInsts = unlines $ map genInst instList
+              where genInst :: MVUnitModInst -> String
+                    genInst (ModInst kind name attrList nvPairList) =
+                        case Map.lookup kind toplevel of
+                             Just (Mod modName modAttrList modInList modOutList modIoList _ _) -> 
+                                 indent 2 $ kind ++ "#(" ++ (genInstModAttr modAttrList) ++ ")" ++ "\n" ++
+                                            (indent 2 $ name ++ "(" ++ "\n" ++ 
+                                                        (indent 2 $ genInstModInIo modInList modIoList) ++ ");")
+                             Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> 
+                                 indent 2 $ kind ++ " #(" ++ (genInstFsmAttr fsmAttrList) ++ ")" ++ "\n" ++
+                                            (indent 2 $ name ++ "(" ++ "\n" ++
+                                                        (indent 2 $ genInstFsmIn fsmInList) ++ ");")
+                             _ -> error ("Unknown module " ++ kind ++ "!")
+                        where genInstModAttr :: [MVUnitModAttr] -> String
+                              genInstModAttr (modAttrList) = ""
+
+                              genInstModInIo :: [MVUnitModIn] -> [MVUnitModIo] -> String
+                              genInstModInIo (modInList) (modIoList) = ""
+
+                              genInstFsmAttr :: [MVUnitFsmAttr] -> String
+                              genInstFsmAttr (fsmAttrList) = ""
+
+                              genInstFsmIn :: [MVUnitFsmIn] -> String
+                              genInstFsmIn (fsmInList) = ""
 generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (tab) =
     let states     = zip (map fsmStateName stateList) $ zip3 (map ((name++) . ("_"++) . fsmStateName) stateList) (map fsmStateOutput stateList) [0..(genericLength stateList)-1]
         stateBits  = if (length stateList) > 1
@@ -542,6 +596,18 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
                     genStateOutput (stateName,(fullName,output,code)) =
                         indent 2 $ "`" ++ fullName ++ ": fsm_output <= " ++ (generateExpr output toplevel) ++ ";"
 
+toplevel :: Map String MVDefs
+toplevel = Map.fromList [("Reg",Mod "Reg"
+                                   [ModAttr "Size"]
+                                   [ModIn "clock" (Numb "1"),
+                                    ModIn "reset" (Numb "1"),
+                                    ModIn "data_i" (Symb "Size"),
+                                    ModIn "writeEn" (Numb "1")]
+                                   [ModOut "data_o" (Symb "Size") (Symb "builtin")]
+                                   []
+                                   []
+                                   True)]
+
 compile :: FilePath -> IO String
 compile path
     = do fileContents <- readFile path
@@ -549,11 +615,16 @@ compile path
          case parse (lexparser (many defs)) "" fileContents of
            Left err -> do putStr "syntax error at "
                           return (show err)
-           Right res -> return $ intercalate "\n\n" (map (\ x -> generateDefs x res 0) res)
+           Right res -> return $ let toplevel' = Map.union toplevel $ Map.fromList $ zip (map defsName res) res
+                                 in intercalate "\n\n" (map (\ x -> generateDefs x toplevel' 0) res)
     where lexparser parser = do whiteSpace lexer
                                 res <- parser
                                 eof
                                 return res
+          defsName :: MVDefs -> String
+          defsName (Def name _ _) = name
+          defsName (Mod name _ _ _ _ _ _) = name
+          defsName (Fsm name _ _ _ _ _) = name
 
 main :: IO ()
 main =
