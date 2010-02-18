@@ -1,6 +1,6 @@
 all: parser rickroll test
 
-parser:
+parser: parser.hs
 	ghc --make -o parser parser.hs
 	rm -f parser.o
 	rm -f parser.hi

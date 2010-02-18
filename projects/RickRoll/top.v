@@ -8,7 +8,7 @@ module top;
       $dumpfile("./projects/RickRoll/RickRoll.vcd");
       $dumpvars;
             
-      #40000 $finish;
+      #400000 $finish;
    end
 
    initial begin

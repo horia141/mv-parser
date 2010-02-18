@@ -597,8 +597,8 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
 
           genInternalRegs :: Integer -> Integer -> String
           genInternalRegs stateBits outputBits = 
-              unlines [indent 2 $ "reg[" ++ (show outputBits) ++ "-1:0] fsm_output;",
-                       indent 2 $ "reg[" ++ (show stateBits) ++ "-1:0] fsm_state;"]
+              unlines [indent 2 $ "reg[" ++ (show stateBits) ++ "-1:0] fsm_state;",
+                       indent 2 $ "reg[" ++ (show outputBits) ++ "-1:0] fsm_output;"]
 
           genStateDefines :: [(String,(String,MVExpr,Integer))] -> String
           genStateDefines states = indent 2 $ unlines $ map genStateDefine states
@@ -648,14 +648,14 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
                                                "end"
 
           genStateOutputs :: [(String,(String,MVExpr,Integer))] -> String
-          genStateOutputs states = indent 2 $ "always @ (posedge clock) begin" ++ "\n" ++
+          genStateOutputs states = indent 2 $ "always @ (fsm_state) begin" ++ "\n" ++
                                    (indent 2 $ "case (fsm_state)") ++ "\n" ++
                                    (indent 2 $ unlines $ map genStateOutput states) ++ "\n" ++
                                    (indent 2 $ "endcase") ++ "\n" ++
                                   "end"
               where genStateOutput :: (String,(String,MVExpr,Integer)) -> String
                     genStateOutput (stateName,(fullName,output,code)) =
-                        indent 2 $ "`" ++ fullName ++ ": fsm_output <= " ++ (generateExpr output toplevel) ++ ";"
+                        indent 2 $ "`" ++ fullName ++ ": fsm_output = " ++ (generateExpr output toplevel) ++ ";"
 
 toplevel :: Map String MVDefs
 toplevel = Map.fromList [("Reg",Mod "Reg"

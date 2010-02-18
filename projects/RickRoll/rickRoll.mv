@@ -13,7 +13,7 @@ fsm RR_Control[] [clock(1)
         Ready
     }
 
-    State[b:0000] Ready {
+    State[b:0101] Ready {
         SendCommand
     }
 
@@ -23,7 +23,7 @@ fsm RR_Control[] [clock(1)
     }
 
     State[b:1000] WaitCommand {
-        WaitCommand (lt wait_counter 22000)
+        WaitCommand (lt wait_counter 63)
 	Ready
     }
 }
