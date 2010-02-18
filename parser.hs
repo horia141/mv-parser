@@ -429,7 +429,7 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
           genAttrs = unlines $ map genAttr attrList
               where genAttr :: MVUnitModAttr -> String
                     genAttr (ModAttr name) =
-                        indent 2 $ "parameter " ++ name ++ " = 0;"
+                        indent 2 $ "parameter " ++ name ++ " = 8;"
 
           genIns :: String
           genIns = unlines $ map genIn inList
@@ -450,14 +450,16 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                     genInst (ModInst kind name attrList nvPairList) =
                         case Map.lookup kind toplevel of
                              Just (Mod modName modAttrList modInList modOutList _ _) -> 
-                                 indent 2 ((genWireModOut modOutList) ++ "\n" ++ 
+                                 indent 2 ((genWireModOutAttrsHack modAttrList) ++ "\n" ++ 
+                                           (genWireModOut modOutList modAttrList) ++ "\n" ++ 
                                            kind ++ " #(" ++ "\n" ++ 
                                            (indent 4 $ (genInstModAttr modAttrList) ++ ")") ++ "\n" ++
                                            (indent 2 $ name ++ "(" ++ "\n" ++ 
                                                        (indent 2 $ genInstModIn modInList) ++ ",\n" ++ 
                                                        (indent 2 $ genInstModOut modOutList) ++ ");"))
                              Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> 
-                                 indent 2 ((genWireFsmOut fsmOutList) ++ "\n" ++
+                                 indent 2 ((genWireFsmOutAttrsHack fsmAttrList) ++ "\n" ++ 
+                                           (genWireFsmOut fsmOutList fsmAttrList) ++ "\n" ++
                                            kind ++ " #(" ++ "\n" ++ 
                                            (indent 4 $ (genInstFsmAttr fsmAttrList) ++ ")") ++ "\n" ++
                                            (indent 2 $ name ++ "(" ++ "\n" ++
@@ -492,11 +494,23 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                                             genOut (ModOut outName outSize outSink) = 
                                                 "." ++ outName ++ "(" ++ name ++ "_" ++ outName ++ ")"
 
-                              genWireModOut :: [MVUnitModOut] -> String
-                              genWireModOut (modOutList) = unlines $ map genWireOut modOutList
+                              genWireModOutAttrsHack :: [MVUnitModAttr] -> String
+                              genWireModOutAttrsHack (modAttrList) = unlines $ zipWith genWireOutAttr modAttrList attrList
+                                  where genWireOutAttr (ModAttr attrName) (expr) = 
+                                            "parameter hack_" ++ name ++ "_" ++ attrName ++ " = " ++ (generateExpr expr toplevel) ++ ";"
+
+                              genWireModOut :: [MVUnitModOut] -> [MVUnitModAttr] -> String
+                              genWireModOut (modOutList) (modAttrList) = unlines $ map genWireOut modOutList
                                   where genWireOut :: MVUnitModOut -> String
                                         genWireOut (ModOut outName outSize outSink) = 
-                                            "wire [" ++ (generateExpr (Func "sub" [outSize, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
+                                            "wire [" ++ (generateExpr (Func "sub" [(hackizeOutput outSize), (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
+
+                                        hackizeOutput :: MVExpr -> MVExpr
+                                        hackizeOutput (Func funcName argList) =
+                                            (Func funcName (map hackizeOutput argList))
+                                        hackizeOutput (Symb symbName) = 
+                                            (Symb ("hack_" ++ name ++ "_" ++ symbName))
+                                        hackizeOutput (expr) = expr
 
                               genInstFsmAttr :: [MVUnitFsmAttr] -> String
                               genInstFsmAttr (fsmAttrList) = 
@@ -525,11 +539,23 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                                         genOut (FsmOut outName outSize outSink) =
                                             "." ++ outName ++ "(" ++ name ++ "_" ++ outName ++ ")"
 
-                              genWireFsmOut :: [MVUnitFsmOut] -> String
-                              genWireFsmOut (fsmOutList) = unlines $ map genWireOut fsmOutList
+                              genWireFsmOutAttrsHack :: [MVUnitFsmAttr] -> String
+                              genWireFsmOutAttrsHack (fsmAttrList) = unlines $ zipWith genWireOutAttr fsmAttrList attrList
+                                  where genWireOutAttr (FsmAttr attrName) (expr) =
+                                            "parameter hack_" ++ name ++ "_" ++ attrName ++ " = " ++ (generateExpr expr toplevel) ++ ";"
+
+                              genWireFsmOut :: [MVUnitFsmOut] -> [MVUnitFsmAttr] -> String
+                              genWireFsmOut (fsmOutList) (fsmAttrList) = unlines $ map genWireOut fsmOutList
                                   where genWireOut :: MVUnitFsmOut -> String
                                         genWireOut (FsmOut outName outSize outOffset) =
-                                            "wire [" ++ (generateExpr (Func "sub" [outSize, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
+                                            "wire [" ++ (generateExpr (Func "sub" [(hackizeOutput outSize), (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
+
+                                        hackizeOutput :: MVExpr -> MVExpr
+                                        hackizeOutput (Func funcName argList) =
+                                            (Func funcName (map hackizeOutput argList))
+                                        hackizeOutput (Symb symbName) = 
+                                            (Symb ("hack_" ++ name ++ "_" ++ symbName))
+                                        hackizeOutput (expr) = expr
 generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (tab) =
     let states     = zip (map fsmStateName stateList) $ zip3 (map ((name++) . ("_"++) . fsmStateName) stateList) (map fsmStateOutput stateList) [0..(genericLength stateList)-1]
         stateBits  = if (length stateList) > 1
@@ -554,7 +580,7 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
           genAttrs = unlines $ map genAttr attrList
               where genAttr :: MVUnitFsmAttr -> String
                     genAttr (FsmAttr name) =
-                        indent 2 $ "parameter " ++ name ++ " = 0;"
+                        indent 2 $ "parameter " ++ name ++ " = 8;"
 
           genIns :: String
           genIns = unlines $ map genIn inList
@@ -640,7 +666,15 @@ toplevel = Map.fromList [("Reg",Mod "Reg"
                                     ModIn "writeEn" (Numb "1")]
                                    [ModOut "data_o" (Symb "Size") (Symb "builtin")]
                                    []
-                                   True)]
+                                   True),
+                         ("Counter",Mod "Counter"
+                                       [ModAttr "Size"]
+                                       [ModIn "clock" (Numb "1"),
+                                        ModIn "reset" (Numb "1"),
+                                        ModIn "count" (Numb "1")]
+                                       [ModOut "data_o" (Symb "Size") (Symb "builtin")]
+                                       []
+                                       True)]
 
 compile :: String -> IO String
 compile text =

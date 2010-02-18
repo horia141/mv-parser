@@ -6,6 +6,7 @@
   * mod:check inst kind exists
   * mod:check attrlist and nvPairList match for instances
   * duplicate names
+  * check all module lookups and searches for failure.
 
 * do proper handling of "toplevel". generateExpr should know when a symbol is a constant or a wire etc.
 * get rid of tab parameter to generateDefs. indent does a better job handling indentation.
@@ -13,3 +14,5 @@
 * add group : takes a list of strings and joins them with newlines, skipping empty elements or elements composed just of whitespace. leading and ending whitespace is trimmed for all list elements.
 * don't check instantations of modules from .v files .
 * proper error handling for command line options.
+* modules inside of other modules
+* see if there's a way to unify fsms with mods.
