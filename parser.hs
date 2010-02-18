@@ -5,6 +5,7 @@ import Data.Bits
 import Data.Char
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Numeric
 
 import Text.ParserCombinators.Parsec
@@ -641,20 +642,19 @@ toplevel = Map.fromList [("Reg",Mod "Reg"
                                    []
                                    True)]
 
-compile :: FilePath -> IO String
-compile path
-    = do fileContents <- readFile path
-         libmvContents <- readFile "libmv.v"
-         
-         case parse (lexparser (many defs)) "" fileContents of
-           Left err -> do putStr "syntax error at "
-                          return (show err)
-           Right res -> return $ let toplevel' = Map.union toplevel $ Map.fromList $ zip (map defsName res) res
-                                 in libmvContents ++ (intercalate "\n\n" (map (\ x -> generateDefs x toplevel' 0) res))
+compile :: String -> IO String
+compile text =
+    case parse (lexparser (many defs)) "" text of
+      Left err -> do putStr "syntax error at "
+                     putStr (show err)
+                     ioError $ userError "Aborting ..."
+      Right res -> return $ let toplevel' = Map.union toplevel $ Map.fromList $ zip (map defsName res) res
+                            in intercalate "\n\n" (map (\ x -> generateDefs x toplevel' 0) res)
     where lexparser parser = do whiteSpace lexer
                                 res <- parser
                                 eof
                                 return res
+
           defsName :: MVDefs -> String
           defsName (Def name _ _) = name
           defsName (Mod name _ _ _ _ _) = name
@@ -662,9 +662,46 @@ compile path
 
 main :: IO ()
 main =
-    do args <- getArgs
+    do argv <- getArgs
 
-       case args of
-         [path] -> do result <- compile path
-                      putStrLn result
-         _      -> putStrLn "Program requires one argument!"
+       case clineOpts argv of
+         Left ([],nonOptArgs) -> 
+             do (vFiles,mvFiles) <- assembleOutput nonOptArgs
+                mvCompiledFiles <- mapM compile mvFiles
+                
+                putStrLn $  (concat vFiles) ++ (concat mvCompiledFiles)
+         Left (Output outputPath:[],nonOptArgs) ->
+             do (vFiles,mvFiles) <- assembleOutput nonOptArgs
+                mvCompiledFiles <- mapM compile mvFiles
+
+                writeFile outputPath $ (concat vFiles) ++ (concat mvCompiledFiles) ++ "\n"
+         Right errorMessages -> 
+             ioError $ userError $ concat errorMessages ++ usageInfo clineHeader clineOptionDesc
+    where assembleOutput :: [String] -> IO ([String],[String])
+          assembleOutput (nonOptArgs) = 
+              let vFilePaths = filter (".v" `isSuffixOf`) nonOptArgs
+                  mvFilePaths = filter (".mv" `isSuffixOf`) nonOptArgs
+                  errFilePaths = filter (\ x -> not (".v" `isSuffixOf` x || ".mv" `isSuffixOf` x)) nonOptArgs
+              in do vFiles <- mapM readFile vFilePaths
+                    mvFiles <- mapM readFile mvFilePaths
+
+                    case null errFilePaths of
+                      True -> return (vFiles,mvFiles)
+                      False -> ioError $ userError ("Unrecognized extensions for files: " ++ (intercalate " " errFilePaths))
+
+data CLineOption
+    = Output {
+        outputPath :: String}
+    deriving (Show)
+
+clineOptionDesc :: [OptDescr CLineOption]
+clineOptionDesc = [Option ['o'] ["outpath"] (ReqArg Output "FILE") "output FILE"]
+
+clineHeader :: String
+clineHeader = "Usage: mvc [OPTIONS...] input_files..."
+
+clineOpts :: [String] -> Either ([CLineOption],[String]) [String]
+clineOpts (argv) = 
+    case getOpt Permute clineOptionDesc argv of
+      (optArgs,nonOptArgs,[]) -> Left (optArgs,nonOptArgs)
+      (_,_,errorMessages)     -> Right errorMessages

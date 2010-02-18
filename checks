@@ -1,0 +1,15 @@
+* checks
+  * fsm:state jump list is empty
+  * fsm:state jump list jump state exists as a state
+  * fsm:clock and reset signals are provided
+  * fsm:state named Reset exists
+  * mod:check inst kind exists
+  * mod:check attrlist and nvPairList match for instances
+  * duplicate names
+
+* do proper handling of "toplevel". generateExpr should know when a symbol is a constant or a wire etc.
+* get rid of tab parameter to generateDefs. indent does a better job handling indentation.
+* change indent : it should only indent it's parameter.
+* add group : takes a list of strings and joins them with newlines, skipping empty elements or elements composed just of whitespace. leading and ending whitespace is trimmed for all list elements.
+* don't check instantations of modules from .v files .
+* proper error handling for command line options.
