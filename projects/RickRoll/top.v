@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 
-module test;
+module top;
    reg clock;
    reg reset;
 
@@ -17,6 +17,4 @@ module test;
    end
    
    RR_Module rr(clock,reset);
-endmodule // test
-
-   
+endmodule // top
