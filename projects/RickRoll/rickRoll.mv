@@ -1,0 +1,52 @@
+def RR_Command_WriteUpdate b:0011
+def RR_Address_DACA        b:0000
+
+fsm RR_Control[] [clock(1)
+		  reset(1)
+		  send_counter(5)
+		  wait_counter(15)]
+		 [SendCounter_Reset(1 0)
+		  SendCounter_Count(1 1)
+		  WaitCounter_Reset(1 2)
+		  WaitCounter_Count(1 3)] {
+    State[b:0101] Reset {
+        Ready
+    }
+
+    State[b:0000] Ready {
+        SendCommand
+    }
+
+    State[b:1010] SendCommand {
+        SendCommand (lt send_counter 31)
+        WaitCommand
+    }
+
+    State[b:1000] WaitCommand {
+        WaitCommand (lt wait_counter 22000)
+	Ready
+    }
+}
+
+mod RR_Module[] [clock(1)
+    		 reset(1)]
+		[] {
+    Counter[5] SendCounter {
+        clock clock
+	reset ControlFSM.SendCounter_Reset
+	count ControlFSM.SendCounter_Count
+    }
+
+    Counter[15] WaitCounter {
+        clock clock
+	reset ControlFSM.WaitCounter_Reset
+	count ControlFSM.WaitCounter_Count
+    }
+
+    RR_Control[] ControlFSM {
+        clock        clock
+	reset        reset
+	send_counter SendCounter.data_o
+	wait_counter WaitCounter.data_o
+    }
+}
