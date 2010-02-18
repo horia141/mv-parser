@@ -6,17 +6,23 @@ parser:
 	rm -f parser.hi
 
 rickroll: parser
-	./parser -o ./projects/RickRoll/rickRoll.v ./projects/RickRoll/rickRoll.mv ./projects/RickRoll/top.v ./common/libmv.v
-	iverilog -o ./projects/RickRoll/top.icv -s top ./projects/RickRoll/rickRoll.v
+	./parser -o ./projects/RickRoll/RickRoll.v ./projects/RickRoll/rickRoll.mv ./projects/RickRoll/top.v ./common/libmv.v
+	iverilog -o ./projects/RickRoll/RickRoll.vvp -s top -Wall ./projects/RickRoll/RickRoll.v
+	vvp ./projects/RickRoll/RickRoll.vvp
 
 test: parser
-	./parser -o ./projects/Test/test.v ./projects/Test/test.mv ./projects/Test/top.v ./common/libmv.v
-	iverilog -o ./projects/Test/top.icv -s top ./projects/Test/test.v
+	./parser -o ./projects/Test/Test.v ./projects/Test/test.mv ./projects/Test/top.v ./common/libmv.v
+	iverilog -o ./projects/Test/Test.vvp -s top -Wall ./projects/Test/Test.v
+	vvp ./projects/Test/Test.vvp
 
 clean:
 	rm -f parser
-	rm -f ./projects/RickRoll/top.icv
-	rm -f ./projects/Test/top.icv
+	rm -f ./projects/RickRoll/RickRoll.v
+	rm -f ./projects/RickRoll/RickRoll.vvp
+	rm -f ./projects/RickRoll/RickRoll.vcd
+	rm -f ./projects/Test/Test.v
+	rm -f ./projects/Test/Test.vvp
+	rm -f ./projects/Test/Test.vcd
 
 distclean: clean
 

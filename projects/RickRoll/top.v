@@ -5,6 +5,13 @@ module top;
    reg reset;
 
    initial begin
+      $dumpfile("./projects/RickRoll/RickRoll.vcd");
+      $dumpvars;
+            
+      #40000 $finish;
+   end
+
+   initial begin
       clock = 0;
       
       forever #2 clock = ~clock;
@@ -15,6 +22,6 @@ module top;
       #2 reset = 1;
       #4 reset = 0;
    end
-   
+
    RR_Module rr(clock,reset);
 endmodule // top
