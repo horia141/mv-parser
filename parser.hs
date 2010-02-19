@@ -570,6 +570,7 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
                    genOuts ++ "\n" ++
                    (genInternalRegs stateBits outputBits) ++ "\n" ++
                    (genStateDefines states) ++ "\n\n" ++
+                   (genStateDefinesText states) ++ "\n\n" ++
                    (genStateChanges states) ++ "\n\n" ++
                    (genStateOutputs states) ++ "\n" ++
                    "endmodule // " ++ name)
@@ -598,13 +599,20 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
           genInternalRegs :: Integer -> Integer -> String
           genInternalRegs stateBits outputBits = 
               unlines [indent 2 $ "reg[" ++ (show stateBits) ++ "-1:0] fsm_state;",
+                       indent 2 $ "reg[64 * 8 - 1:0] fsm_state_t;",
                        indent 2 $ "reg[" ++ (show outputBits) ++ "-1:0] fsm_output;"]
 
           genStateDefines :: [(String,(String,MVExpr,Integer))] -> String
-          genStateDefines states = indent 2 $ unlines $ map genStateDefine states
+          genStateDefines (states) = indent 2 $ unlines $ map genStateDefine states
               where genStateDefine :: (String,(String,MVExpr,Integer)) -> String
                     genStateDefine (stateName,(fullName,output,code)) =
                         "`define " ++ fullName ++ " " ++ (show code)
+
+          genStateDefinesText :: [(String,(String,MVExpr,Integer))] -> String
+          genStateDefinesText (states) = indent 2 $ unlines $ map genStateDefineText states
+              where genStateDefineText :: (String,(String,MVExpr,Integer)) -> String
+                    genStateDefineText (stateName,(fullName,output,code)) = 
+                        "`define " ++ fullName ++ "_t \"" ++ stateName ++ "\""
 
           genStateChanges :: [(String,(String,MVExpr,Integer))] -> String
           genStateChanges states = 
@@ -628,23 +636,27 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
                         where genChangeList :: [MVUnitFsmChange] -> String
                               genChangeList ((FsmChange state (Func "else" [])):[]) =
                                   let (stateFullName,_,_) = statesMap Map.! state
-                                  in "fsm_state <= `" ++ stateFullName ++ ";"
+                                  in "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
+                                     "fsm_state_t <= `" ++ stateFullName ++ "_t;"
                               genChangeList ((FsmChange state expr):restChangeList) =
                                   let (stateFullName,_,_) = statesMap Map.! state
                                   in "if (" ++ (generateExpr expr toplevel) ++ ") begin" ++ "\n" ++
-                                     (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";") ++ "\n" ++
+                                     (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
+                                                 "fsm_state_t <= `" ++ stateFullName ++ "_t;") ++ "\n" ++
                                      "end" ++ "\n" ++ (unlines $ map genChange restChangeList)
                                   where genChange :: MVUnitFsmChange -> String
                                         genChange (FsmChange state (Func "else" [])) =
                                             let (stateFullName,_,_) = statesMap Map.! state
                                             in "else begin" ++ "\n" ++
-                                               (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";") ++ "\n" ++
+                                               (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
+                                                           "fsm_state_t <= `" ++ stateFullName ++ "_t;") ++ "\n" ++
                                                "end"
                                         genChange (FsmChange state expr) = 
                                             let (stateFullName,_,_) = statesMap Map.! state
                                             in "else" ++ "\n" ++
                                                "if (" ++ (generateExpr expr toplevel) ++ ") begin" ++ "\n" ++
-                                               (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";") ++ "\n" ++
+                                               (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
+                                                           "fsm_state_t <= `" ++ stateFullName ++ "_t;") ++ "\n" ++
                                                "end"
 
           genStateOutputs :: [(String,(String,MVExpr,Integer))] -> String
@@ -674,7 +686,99 @@ toplevel = Map.fromList [("Reg",Mod "Reg"
                                         ModIn "count" (Numb "1")]
                                        [ModOut "data_o" (Symb "Size") (Symb "builtin")]
                                        []
-                                       True)]
+                                       True),
+                         ("Mux2",Mod "Mux2"
+                                     [ModAttr "Size"]
+                                     [ModIn "select" (Numb "1"),
+                                      ModIn "data_i00" (Symb "Size"),
+                                      ModIn "data_i01" (Symb "Size")]
+                                     [ModOut "data_o" (Symb "Size") (Symb "builtin")]
+                                     []
+                                     True),
+                         ("Mux4",Mod "Mux4"
+                                     [ModAttr "Size"]
+                                     [ModIn "select" (Numb "2"),
+                                      ModIn "data_i00" (Symb "Size"),
+                                      ModIn "data_i01" (Symb "Size"),
+                                      ModIn "data_i02" (Symb "Size"),
+                                      ModIn "data_i03" (Symb "Size")]
+                                     [ModOut "data_o" (Symb "Size") (Symb "builtin")]
+                                     []
+                                     True),
+                         ("Mux8",Mod "Mux8"
+                                     [ModAttr "Size"]
+                                     [ModIn "select" (Numb "3"),
+                                      ModIn "data_i00" (Symb "Size"),
+                                      ModIn "data_i01" (Symb "Size"),
+                                      ModIn "data_i02" (Symb "Size"),
+                                      ModIn "data_i03" (Symb "Size"),
+                                      ModIn "data_i04" (Symb "Size"),
+                                      ModIn "data_i05" (Symb "Size"),
+                                      ModIn "data_i06" (Symb "Size"),
+                                      ModIn "data_i07" (Symb "Size")]
+                                     [ModOut "data_o" (Symb "Size") (Symb "builtin")]
+                                     []
+                                     True),
+                         ("Mux16",Mod "Mux16"
+                                     [ModAttr "Size"]
+                                     [ModIn "select" (Numb "4"),
+                                      ModIn "data_i00" (Symb "Size"),
+                                      ModIn "data_i01" (Symb "Size"),
+                                      ModIn "data_i02" (Symb "Size"),
+                                      ModIn "data_i03" (Symb "Size"),
+                                      ModIn "data_i04" (Symb "Size"),
+                                      ModIn "data_i05" (Symb "Size"),
+                                      ModIn "data_i06" (Symb "Size"),
+                                      ModIn "data_i07" (Symb "Size"),
+                                      ModIn "data_i08" (Symb "Size"),
+                                      ModIn "data_i09" (Symb "Size"),
+                                      ModIn "data_i10" (Symb "Size"),
+                                      ModIn "data_i11" (Symb "Size"),
+                                      ModIn "data_i12" (Symb "Size"),
+                                      ModIn "data_i13" (Symb "Size"),
+                                      ModIn "data_i14" (Symb "Size"),
+                                      ModIn "data_i15" (Symb "Size")]
+                                     [ModOut "data_o" (Symb "Size") (Symb "builtin")]
+                                     []
+                                     True),
+                         ("Mux32",Mod "Mux32"
+                                     [ModAttr "Size"]
+                                     [ModIn "select" (Numb "5"),
+                                      ModIn "data_i00" (Symb "Size"),
+                                      ModIn "data_i01" (Symb "Size"),
+                                      ModIn "data_i02" (Symb "Size"),
+                                      ModIn "data_i03" (Symb "Size"),
+                                      ModIn "data_i04" (Symb "Size"),
+                                      ModIn "data_i05" (Symb "Size"),
+                                      ModIn "data_i06" (Symb "Size"),
+                                      ModIn "data_i07" (Symb "Size"),
+                                      ModIn "data_i08" (Symb "Size"),
+                                      ModIn "data_i09" (Symb "Size"),
+                                      ModIn "data_i10" (Symb "Size"),
+                                      ModIn "data_i11" (Symb "Size"),
+                                      ModIn "data_i12" (Symb "Size"),
+                                      ModIn "data_i13" (Symb "Size"),
+                                      ModIn "data_i14" (Symb "Size"),
+                                      ModIn "data_i15" (Symb "Size"),
+                                      ModIn "data_i16" (Symb "Size"),
+                                      ModIn "data_i17" (Symb "Size"),
+                                      ModIn "data_i18" (Symb "Size"),
+                                      ModIn "data_i19" (Symb "Size"),
+                                      ModIn "data_i20" (Symb "Size"),
+                                      ModIn "data_i21" (Symb "Size"),
+                                      ModIn "data_i22" (Symb "Size"),
+                                      ModIn "data_i23" (Symb "Size"),
+                                      ModIn "data_i24" (Symb "Size"),
+                                      ModIn "data_i25" (Symb "Size"),
+                                      ModIn "data_i26" (Symb "Size"),
+                                      ModIn "data_i27" (Symb "Size"),
+                                      ModIn "data_i28" (Symb "Size"),
+                                      ModIn "data_i29" (Symb "Size"),
+                                      ModIn "data_i30" (Symb "Size"),
+                                      ModIn "data_i31" (Symb "Size")]
+                                     [ModOut "data_o" (Symb "Size") (Symb "builtin")]
+                                     []
+                                     True)]
 
 compile :: String -> IO String
 compile text =

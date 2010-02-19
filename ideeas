@@ -17,3 +17,4 @@
 * modules inside of other modules.
 * see if there's a way to unify fsms with mods.
 * add textual state descriptions for each state in a fsm.
+* split front-end and back-end. front-end should handle mv, Verilog and Verilog with mv annotations, VHDL and VHDL with annotations with separate parsers, and back-end should generate Verilog and VHDL with separate generators.
