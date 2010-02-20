@@ -804,19 +804,19 @@ toplevel = Map.fromList [("Reg",Mod "Reg"
                                      [ModOut "data_o" (Symb "Size") (Symb "builtin")]
                                      []
                                      True),
-                         ("DCM",Mod "DCM"
-                                   []
-                                   [ModIn "clock" (Numb "1"),
-                                    ModIn "reset" (Numb "1")]
-                                   [ModOut "locked" (Numb "1") (Symb "builtin"),
-                                    ModOut "clock_o0" (Numb "1") (Symb "builtin"),
-                                    ModOut "clock_o90" (Numb "1") (Symb "builtin"),
-                                    ModOut "clock_o180" (Numb "1") (Symb "builtin"),
-                                    ModOut "clock_o270" (Numb "1") (Symb "builtin"),
-                                    ModOut "clock_o2x" (Numb "1") (Symb "builtin"),
-                                    ModOut "clock_o2x180" (Numb "1") (Symb "builtin")]
-                                   []
-                                   True)]
+                         ("FPGADCM",Mod "FPGADCM"
+                                       []
+                                       [ModIn "clock" (Numb "1"),
+                                        ModIn "reset" (Numb "1")]
+                                       [ModOut "locked" (Numb "1") (Symb "builtin"),
+                                        ModOut "clock_o0" (Numb "1") (Symb "builtin"),
+                                        ModOut "clock_o90" (Numb "1") (Symb "builtin"),
+                                        ModOut "clock_o180" (Numb "1") (Symb "builtin"),
+                                        ModOut "clock_o270" (Numb "1") (Symb "builtin"),
+                                        ModOut "clock_o2x" (Numb "1") (Symb "builtin"),
+                                        ModOut "clock_o2x180" (Numb "1") (Symb "builtin")]
+                                       []
+                                       True)]
 
 compile :: String -> IO String
 compile text =

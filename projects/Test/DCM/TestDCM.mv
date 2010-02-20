@@ -1,7 +1,7 @@
 mod TestDCM[] [clock(1)
 	       reset(1)]
               [locked(1 DCMInst.locked)] {
-    DCM[] DCMInst {
+    FPGADCM[] DCMInst {
         clock clock
 	reset reset}
 }
