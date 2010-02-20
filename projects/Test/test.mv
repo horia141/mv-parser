@@ -13,12 +13,8 @@ fsm CtlFSM[Size] [clock(1)
 	Write0
     }
 
-    State[b:10] Write0 {
-    	Write1
-    }
-
-    State[b:01] Write1 {
-	Write0
+    State[b:00] Write0 {
+        Write0
     }
 }
 

@@ -9,7 +9,7 @@ module UpCounter(clock,reset,count,data_o);
 
    always @ (posedge clock) begin
       if (reset) begin
-	 data_o <= {Size{'b0}};
+	 data_o <= {Size{1'b0}};
       end
       else begin
 	 if (count) begin
@@ -31,7 +31,7 @@ module UDCounter(clock,reset,count,direction,data_o);
 
    always @ (posedge clock) begin
       if (reset) begin
-	 data_o <= {Size{'b0}};
+	 data_o <= {Size{1'b0}};
       end
       else begin
 	 if (count) begin

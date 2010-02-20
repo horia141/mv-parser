@@ -1,4 +1,7 @@
-* checks
+* urgent:
+  * empty attribute list should not generate # ()
+
+* checks :
   * fsm:state jump list is empty.
   * fsm:state jump list jump state exists as a state.
   * fsm:clock and reset signals are provided.
@@ -7,6 +10,11 @@
   * mod:check attrlist and nvPairList match for instances.
   * duplicate names.
   * check all module lookups and searches for failure.
+
+* seriously fix expressions:
+  * propery expression paranthetisation.
+  * work around Verilog's limited expression capabilities (no (range [complex_expression] 0 10) for example) etc.
+  * add infix expressions.
 
 * do proper handling of "toplevel". generateExpr should know when a symbol is a constant or a wire etc.
 * get rid of tab parameter to generateDefs. indent does a better job handling indentation.
@@ -18,3 +26,7 @@
 * see if there's a way to unify fsms with mods.
 * add textual state descriptions for each state in a fsm.
 * split front-end and back-end. front-end should handle mv, Verilog and Verilog with mv annotations, VHDL and VHDL with annotations with separate parsers, and back-end should generate Verilog and VHDL with separate generators.
+* proper parser errors
+* data structures should contain source information from parsers
+* interesting problems for expression generation. Verilog is very limited in this sense. For example, we can't have an index from a constant expression. A mix of eager evaluation and hacks should do the trick though.
+

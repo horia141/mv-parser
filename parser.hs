@@ -365,11 +365,11 @@ generateExpr (Func name argList) (toplevel) =
 
           genOperU :: String -> String -> String
           genOperU oper arg =
-              oper ++ " " ++ (genParens arg)
+              genParens (oper ++ " " ++ arg)
 
           genOperB :: String -> String -> String -> String
           genOperB oper arg0 arg1 =
-              (genParens arg0) ++ " " ++ oper ++ " " ++ (genParens arg1)
+              genParens (arg0 ++ " " ++ oper ++ " " ++ arg1)
 
           genOperV :: String -> [String] -> String
           genOperV oper argList =
@@ -388,18 +388,15 @@ generateExpr (Func name argList) (toplevel) =
               foldl genXor2 (head argList) (tail argList)
               where genXor2 :: String -> String -> String
                     genXor2 arg0 arg1 =
-                        let arg0p = genParens arg0
-                            arg1p = genParens arg1
-                        in 
-                          (genParens (arg0p ++ " && " ++ (genParens ("!" ++ arg1p)))) ++ " || " ++ (genParens ((genParens ("!" ++ arg0p)) ++ " && " ++ arg1p))
+                        genParens (arg0 ++ " && " ++ "!" ++ arg1 ++ " || " ++ "!" ++ arg0 ++ " && " ++ arg1)
 
           genIndex :: String -> String -> String
           genIndex arg index =
-              (genParens arg) ++ "[" ++ index ++ "]"
+              arg ++ "[" ++ index ++ "]"
 
           genRange :: String -> String -> String -> String
           genRange arg beg end =
-              (genParens arg) ++ "[" ++ beg ++ ":" ++ end ++ "]"
+              arg ++ "[" ++ beg ++ ":" ++ end ++ "]"
 
           genElse :: String
           genElse = "1"
@@ -418,6 +415,8 @@ generateDefs (Def name value builtin) (toplevel) (tab) =
 generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab) =
     indent tab ("module " ++ name ++ "(" ++ genParamList ++ ");" ++ "\n" ++ 
                 genAttrs ++ "\n" ++
+                genOutWiresAttrHack ++ "\n" ++
+                genOutWires ++ "\n" ++
                 genIns ++ "\n" ++
                 genOuts ++ "\n" ++
                 genInsts ++ "\n" ++
@@ -430,6 +429,45 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
               where genAttr :: MVUnitModAttr -> String
                     genAttr (ModAttr name) =
                         indent 2 $ "parameter " ++ name ++ " = 8;"
+
+          genOutWiresAttrHack :: String
+          genOutWiresAttrHack = unlines $ map genOutWireAttr instList
+              where genOutWireAttr :: MVUnitModInst -> String
+                    genOutWireAttr (ModInst instKind instName instAttrList instNVPairList) =
+                        case Map.lookup instKind toplevel of
+                          Just (Mod modName modAttrList modInList modOutList _ _) -> indent 2 $ unlines $ zipWith genOutWireAttrMod modAttrList instAttrList
+                          Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> indent 2 $ unlines $ zipWith genOutWireAttrFsm fsmAttrList instAttrList
+                          Nothing -> error ("Unknown module " ++ instKind ++ "!")
+                        where genOutWireAttrMod :: MVUnitModAttr -> MVExpr -> String
+                              genOutWireAttrMod (ModAttr attrName) (expr) =
+                                  "parameter hack_" ++ instName ++ "_" ++ attrName ++ " = " ++ (generateExpr expr toplevel) ++ ";"
+
+                              genOutWireAttrFsm :: MVUnitFsmAttr -> MVExpr -> String
+                              genOutWireAttrFsm (FsmAttr attrName) (expr) =
+                                  "parameter hack_" ++ instName ++ "_" ++ attrName ++ " = " ++ (generateExpr expr toplevel) ++ ";"
+
+          genOutWires :: String
+          genOutWires = unlines $ map genOutWire instList
+              where genOutWire :: MVUnitModInst -> String
+                    genOutWire (ModInst instKind instName instAttrList instNVPairList) =
+                        case Map.lookup instKind toplevel of
+                          Just (Mod modName modAttrList modInList modOutList _ _) -> indent 2 $ unlines $ map genOutWireMod modOutList
+                          Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> indent 2 $ unlines $ map genOutWireFsm fsmOutList
+                          Nothing -> error  ("Unknown module " ++ instKind ++ "!")
+                        where genOutWireMod :: MVUnitModOut -> String
+                              genOutWireMod (ModOut outName outSize outSink) =
+                                  "wire [" ++ (generateExpr (Func "sub" [(hackizeOutput outSize), (Numb "1")]) toplevel) ++ ":0] " ++ instName ++ "_" ++ outName ++ ";"
+
+                              genOutWireFsm :: MVUnitFsmOut -> String
+                              genOutWireFsm (FsmOut outName outSize outOffset) =
+                                  "wire [" ++ (generateExpr (Func "sub" [(hackizeOutput outSize), (Numb "1")]) toplevel) ++ ":0] " ++ instName ++ "_" ++ outName ++ ";"
+
+                              hackizeOutput :: MVExpr -> MVExpr
+                              hackizeOutput (Func funcName argList) =
+                                  (Func funcName (map hackizeOutput argList))
+                              hackizeOutput (Symb symbName) = 
+                                  (Symb ("hack_" ++ instName ++ "_" ++ symbName))
+                              hackizeOutput (expr) = expr
 
           genIns :: String
           genIns = unlines $ map genIn inList
@@ -450,17 +488,13 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                     genInst (ModInst kind name attrList nvPairList) =
                         case Map.lookup kind toplevel of
                              Just (Mod modName modAttrList modInList modOutList _ _) -> 
-                                 indent 2 ((genWireModOutAttrsHack modAttrList) ++ "\n" ++ 
-                                           (genWireModOut modOutList modAttrList) ++ "\n" ++ 
-                                           kind ++ " #(" ++ "\n" ++ 
+                                 indent 2 (kind ++ " #(" ++ "\n" ++ 
                                            (indent 4 $ (genInstModAttr modAttrList) ++ ")") ++ "\n" ++
                                            (indent 2 $ name ++ "(" ++ "\n" ++ 
                                                        (indent 2 $ genInstModIn modInList) ++ ",\n" ++ 
                                                        (indent 2 $ genInstModOut modOutList) ++ ");"))
                              Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> 
-                                 indent 2 ((genWireFsmOutAttrsHack fsmAttrList) ++ "\n" ++ 
-                                           (genWireFsmOut fsmOutList fsmAttrList) ++ "\n" ++
-                                           kind ++ " #(" ++ "\n" ++ 
+                                 indent 2 (kind ++ " #(" ++ "\n" ++ 
                                            (indent 4 $ (genInstFsmAttr fsmAttrList) ++ ")") ++ "\n" ++
                                            (indent 2 $ name ++ "(" ++ "\n" ++
                                                        (indent 2 $ genInstFsmIn fsmInList) ++ ",\n" ++ 
@@ -494,24 +528,6 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                                             genOut (ModOut outName outSize outSink) = 
                                                 "." ++ outName ++ "(" ++ name ++ "_" ++ outName ++ ")"
 
-                              genWireModOutAttrsHack :: [MVUnitModAttr] -> String
-                              genWireModOutAttrsHack (modAttrList) = unlines $ zipWith genWireOutAttr modAttrList attrList
-                                  where genWireOutAttr (ModAttr attrName) (expr) = 
-                                            "parameter hack_" ++ name ++ "_" ++ attrName ++ " = " ++ (generateExpr expr toplevel) ++ ";"
-
-                              genWireModOut :: [MVUnitModOut] -> [MVUnitModAttr] -> String
-                              genWireModOut (modOutList) (modAttrList) = unlines $ map genWireOut modOutList
-                                  where genWireOut :: MVUnitModOut -> String
-                                        genWireOut (ModOut outName outSize outSink) = 
-                                            "wire [" ++ (generateExpr (Func "sub" [(hackizeOutput outSize), (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
-
-                                        hackizeOutput :: MVExpr -> MVExpr
-                                        hackizeOutput (Func funcName argList) =
-                                            (Func funcName (map hackizeOutput argList))
-                                        hackizeOutput (Symb symbName) = 
-                                            (Symb ("hack_" ++ name ++ "_" ++ symbName))
-                                        hackizeOutput (expr) = expr
-
                               genInstFsmAttr :: [MVUnitFsmAttr] -> String
                               genInstFsmAttr (fsmAttrList) = 
                                   if (length fsmAttrList) == (length attrList)
@@ -538,24 +554,6 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                                   where genOut :: MVUnitFsmOut -> String
                                         genOut (FsmOut outName outSize outSink) =
                                             "." ++ outName ++ "(" ++ name ++ "_" ++ outName ++ ")"
-
-                              genWireFsmOutAttrsHack :: [MVUnitFsmAttr] -> String
-                              genWireFsmOutAttrsHack (fsmAttrList) = unlines $ zipWith genWireOutAttr fsmAttrList attrList
-                                  where genWireOutAttr (FsmAttr attrName) (expr) =
-                                            "parameter hack_" ++ name ++ "_" ++ attrName ++ " = " ++ (generateExpr expr toplevel) ++ ";"
-
-                              genWireFsmOut :: [MVUnitFsmOut] -> [MVUnitFsmAttr] -> String
-                              genWireFsmOut (fsmOutList) (fsmAttrList) = unlines $ map genWireOut fsmOutList
-                                  where genWireOut :: MVUnitFsmOut -> String
-                                        genWireOut (FsmOut outName outSize outOffset) =
-                                            "wire [" ++ (generateExpr (Func "sub" [(hackizeOutput outSize), (Numb "1")]) toplevel) ++ ":0] " ++ name ++ "_" ++ outName ++ ";"
-
-                                        hackizeOutput :: MVExpr -> MVExpr
-                                        hackizeOutput (Func funcName argList) =
-                                            (Func funcName (map hackizeOutput argList))
-                                        hackizeOutput (Symb symbName) = 
-                                            (Symb ("hack_" ++ name ++ "_" ++ symbName))
-                                        hackizeOutput (expr) = expr
 generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (tab) =
     let states     = zip (map fsmStateName stateList) $ zip3 (map ((name++) . ("_"++) . fsmStateName) stateList) (map fsmStateOutput stateList) [0..(genericLength stateList)-1]
         stateBits  = if (length stateList) > 1
@@ -566,9 +564,9 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
                      else 1
     in indent tab ("module " ++ name ++ "(" ++ genParamList ++ ");" ++ "\n" ++
                    genAttrs ++ "\n" ++ 
+                   (genInternalRegs stateBits outputBits) ++ "\n" ++
                    genIns ++ "\n" ++ 
                    genOuts ++ "\n" ++
-                   (genInternalRegs stateBits outputBits) ++ "\n" ++
                    (genStateDefines states) ++ "\n\n" ++
                    (genStateDefinesText states) ++ "\n\n" ++
                    (genStateChanges states) ++ "\n\n" ++
@@ -617,47 +615,55 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
           genStateChanges :: [(String,(String,MVExpr,Integer))] -> String
           genStateChanges states = 
               let statesMap = Map.fromList states
-              in indent 2 $ "always @ (posedge clock) begin" ++ "\n" ++
-                     (indent 2 $ "if (reset) begin") ++ "\n" ++ 
-                     (indent 4 $ "fsm_state <= `" ++ (let (fullName,_,_) = (statesMap Map.! "Reset") in fullName) ++ ";") ++ "\n" ++
-                     (indent 2 $ "end") ++ "\n" ++
-                     (indent 2 $ "else begin") ++ "\n" ++
-                     (indent 4 $ "case (fsm_state)") ++ "\n" ++
-                     (indent 4 $ unlines $ map (genStateChange statesMap) stateList) ++ "\n" ++
-                     (indent 4 $ "endcase") ++ "\n" ++
-                     (indent 2 $ "end") ++ "\n" ++
-                     "end"
+              in case Map.lookup "Reset" statesMap of
+                   Nothing -> error ("State Machine " ++ name ++ " does not have a Reset state!")
+                   Just (resetFullName,_,_) -> 
+                       indent 2 $ "always @ (posedge clock) begin" ++ "\n" ++
+                                  (indent 2 $ "if (reset) begin") ++ "\n" ++ 
+                                  (indent 4 $ "fsm_state <= `" ++ resetFullName ++ ";") ++ "\n" ++
+                                  (indent 2 $ "end") ++ "\n" ++
+                                  (indent 2 $ "else begin") ++ "\n" ++
+                                  (indent 4 $ "case (fsm_state)") ++ "\n" ++
+                                  (indent 4 $ unlines $ map (genStateChange statesMap) stateList) ++ "\n" ++
+                                  (indent 4 $ "endcase") ++ "\n" ++
+                                  (indent 2 $ "end") ++ "\n" ++
+                                  "end"
               where genStateChange :: Map String (String,MVExpr,Integer) -> MVUnitFsmState -> String
-                    genStateChange (statesMap) (FsmState name output changeList) = 
-                        let (fullName,_,_) = statesMap Map.! name
+                    genStateChange (statesMap) (FsmState stateName output changeList) = 
+                        let (fullName,_,_) = statesMap Map.! stateName
                         in indent 2 $ "`" ++ fullName ++ ":begin" ++ "\n" ++
                            (indent 2 $ genChangeList changeList) ++ "\n" ++
                            "end"
                         where genChangeList :: [MVUnitFsmChange] -> String
                               genChangeList ((FsmChange state (Func "else" [])):[]) =
-                                  let (stateFullName,_,_) = statesMap Map.! state
-                                  in "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
-                                     "fsm_state_t <= `" ++ stateFullName ++ "_t;"
+                                  case Map.lookup state statesMap of
+                                    Nothing -> error ("Unknown state " ++ state ++ " from " ++ stateName ++ " in State Machine " ++ name ++ "!")
+                                    Just (stateFullName,_,_) ->
+                                        "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++ "fsm_state_t <= `" ++ stateFullName ++ "_t;"
                               genChangeList ((FsmChange state expr):restChangeList) =
-                                  let (stateFullName,_,_) = statesMap Map.! state
-                                  in "if (" ++ (generateExpr expr toplevel) ++ ") begin" ++ "\n" ++
-                                     (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
-                                                 "fsm_state_t <= `" ++ stateFullName ++ "_t;") ++ "\n" ++
-                                     "end" ++ "\n" ++ (unlines $ map genChange restChangeList)
+                                  case Map.lookup state statesMap of
+                                    Nothing -> error ("Unknown state " ++ state ++ " from " ++ stateName ++ " in State Machine " ++ name ++ "!")
+                                    Just (stateFullName,_,_) ->
+                                        "if (" ++ (generateExpr expr toplevel) ++ ") begin" ++ "\n" ++
+                                                   (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
+                                                               "fsm_state_t <= `" ++ stateFullName ++ "_t;") ++ "\n" ++
+                                                   "end" ++ "\n" ++ (unlines $ map genChange restChangeList)
                                   where genChange :: MVUnitFsmChange -> String
                                         genChange (FsmChange state (Func "else" [])) =
-                                            let (stateFullName,_,_) = statesMap Map.! state
-                                            in "else begin" ++ "\n" ++
-                                               (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
-                                                           "fsm_state_t <= `" ++ stateFullName ++ "_t;") ++ "\n" ++
-                                               "end"
+                                            case Map.lookup state statesMap of
+                                              Nothing -> error ("Unknown state " ++ state ++ " from " ++ stateName ++ " in State Machine " ++ name ++ "!")
+                                              Just (stateFullName,_,_) ->
+                                                  "else begin" ++ "\n" ++ (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
+                                                                                      "fsm_state_t <= `" ++ stateFullName ++ "_t;") ++ "\n" ++
+                                                                            "end"
                                         genChange (FsmChange state expr) = 
-                                            let (stateFullName,_,_) = statesMap Map.! state
-                                            in "else" ++ "\n" ++
-                                               "if (" ++ (generateExpr expr toplevel) ++ ") begin" ++ "\n" ++
-                                               (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
-                                                           "fsm_state_t <= `" ++ stateFullName ++ "_t;") ++ "\n" ++
-                                               "end"
+                                            case Map.lookup state statesMap of
+                                              Nothing -> error ("Unknown state " ++ state ++ " from " ++ stateName ++ " in State Machine " ++ name ++ "!")
+                                              Just (stateFullName,_,_) ->
+                                                  "else" ++ "\n" ++ "if (" ++ (generateExpr expr toplevel) ++ ") begin" ++ "\n" ++
+                                                             (indent 2 $ "fsm_state <= `" ++ stateFullName ++ ";" ++ "\n" ++
+                                                                         "fsm_state_t <= `" ++ stateFullName ++ "_t;") ++ "\n" ++
+                                                             "end"
 
           genStateOutputs :: [(String,(String,MVExpr,Integer))] -> String
           genStateOutputs states = indent 2 $ "always @ (fsm_state) begin" ++ "\n" ++
@@ -667,7 +673,7 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
                                   "end"
               where genStateOutput :: (String,(String,MVExpr,Integer)) -> String
                     genStateOutput (stateName,(fullName,output,code)) =
-                        indent 2 $ "`" ++ fullName ++ ": fsm_output = " ++ (generateExpr output toplevel) ++ ";"
+                        indent 2 $ "`" ++ fullName ++ ": begin" ++ "\n" ++ (indent 2 $ "fsm_output = " ++ (generateExpr output toplevel) ++ ";") ++ "\n" ++ "end"
 
 toplevel :: Map String MVDefs
 toplevel = Map.fromList [("Reg",Mod "Reg"
@@ -821,7 +827,7 @@ main =
              do (vFiles,mvFiles) <- assembleOutput nonOptArgs
                 mvCompiledFiles <- mapM compile mvFiles
 
-                writeFile outputPath $ (concat vFiles) ++ (concat mvCompiledFiles) ++ "\n"
+                writeFile outputPath $ (intercalate "\n" vFiles) ++ "\n" ++ (intercalate "\n" mvCompiledFiles) ++ "\n"
          Right errorMessages -> 
              ioError $ userError $ concat errorMessages ++ usageInfo clineHeader clineOptionDesc
     where assembleOutput :: [String] -> IO ([String],[String])

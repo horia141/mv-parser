@@ -1,7 +1,7 @@
 module Mux2(select,data_i00,data_i01,data_o);
    parameter Size = 8;
 
-   input wire [('b1) - ('b1):0] select;
+   input wire [('d1) - ('b1):0] select;
    input wire [(Size) - ('b1):0] data_i00;
    input wire [(Size) - ('b1):0] data_i01;
 
@@ -9,8 +9,8 @@ module Mux2(select,data_i00,data_i01,data_o);
 
    always @ (select or data_i00 or data_i01) begin
      case (select)
-       b0:data_0 = data_i00;
-       b1:data_0 = data_i01;
+       'b0:data_o = data_i00;
+       'b1:data_o = data_i01;
      endcase // case (select)
    end
 endmodule // Mux2
@@ -18,7 +18,7 @@ endmodule // Mux2
 module Mux4(select,data_i00,data_i01,data_i02,data_i03,data_o);
    parameter Size = 8;
 
-   input wire [('b4) - ('b1):0] select;
+   input wire [('d2) - ('b1):0] select;
    input wire [(Size) - ('b1):0] data_i00;
    input wire [(Size) - ('b1):0] data_i01;
    input wire [(Size) - ('b1):0] data_i02;
@@ -40,7 +40,7 @@ endmodule // Mux4
 module Mux8(select,data_i00,data_i01,data_i02,data_i03,data_i04,data_i05,data_i06,data_i07,data_o);
    parameter Size = 8;
 
-   input wire [('b4) - ('b1):0] select;
+   input wire [('d3) - ('b1):0] select;
    input wire [(Size) - ('b1):0] data_i00;
    input wire [(Size) - ('b1):0] data_i01;
    input wire [(Size) - ('b1):0] data_i02;
@@ -70,7 +70,7 @@ endmodule // Mux8
 module Mux16(select,data_i00,data_i01,data_i02,data_i03,data_i04,data_i05,data_i06,data_i07,data_i08,data_i09,data_i10,data_i11,data_i12,data_i13,data_i14,data_i15,data_o);
    parameter Size = 8;
 
-   input wire [('b4) - ('b1):0] select;
+   input wire [('d4) - ('b1):0] select;
    input wire [(Size) - ('b1):0] data_i00;
    input wire [(Size) - ('b1):0] data_i01;
    input wire [(Size) - ('b1):0] data_i02;
@@ -117,7 +117,7 @@ endmodule // Mux16
 module Mux32(select,data_i00,data_i01,data_i02,data_i03,data_i04,data_i05,data_i06,data_i07,data_i08,data_i09,data_i10,data_i11,data_i12,data_i13,data_i14,data_i15,data_i16,data_i17,data_i18,data_i19,data_i20,data_i21,data_i22,data_i23,data_i24,data_i25,data_i26,data_i27,data_i28,data_i29,data_i30,data_i31,data_o);
    parameter Size = 8;
 
-   input wire [('b5) - ('b1):0] select;
+   input wire [('d5) - ('b1):0] select;
    input wire [(Size) - ('b1):0] data_i00;
    input wire [(Size) - ('b1):0] data_i01;
    input wire [(Size) - ('b1):0] data_i02;
@@ -157,7 +157,7 @@ module Mux32(select,data_i00,data_i01,data_i02,data_i03,data_i04,data_i05,data_i
 	     data_i00 or data_i01 or data_i02 or data_i03 or data_i04 or data_i05 or data_i06 or data_i07 or
 	     data_i08 or data_i09 or data_i10 or data_i11 or data_i12 or data_i13 or data_i14 or data_i15 or
 	     data_i16 or data_i17 or data_i18 or data_i19 or data_i20 or data_i21 or data_i22 or data_i23 or
-	     data_i24 or data_i25 or data_i26 or data_i27 or data_i28 or data_i29 or data_i30 or data_i32) begin
+	     data_i24 or data_i25 or data_i26 or data_i27 or data_i28 or data_i29 or data_i30 or data_i31) begin
       case (select)
 	'b00000: data_o = data_i00;
 	'b00001: data_o = data_i01;

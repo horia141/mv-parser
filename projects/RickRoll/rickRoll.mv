@@ -1,6 +1,70 @@
-mod RR_Module[] [clock0(1)
-		 clock90(1)
-		 reset(1)]
+def DACCommand b:0011
+def DACAddress b:0000
+def TicksPerCommand 31
+def TicksPerNote 63
+def NoteAmplitudeMin 0
+def NoteAmplitudeMax 10
+
+fsm RR_Control[] [clock                 (1)
+		  reset                 (1)
+		  tickCounter           (15)
+		  noteCounter           (12)]
+                 [dac_cs                (1 0)
+		  dac_clr               (1 1)
+		  tickCounter_reset     (1 2)
+		  tickCounter_count     (1 3)
+		  noteCounter_reset     (1 4)
+		  noteCounter_count     (1 5)
+		  noteCounter_direction (1 6)] {
+    State[b:0010111] Reset {
+        SendCommandUp}
+
+    State[b:0001000] SendCommandUp {
+        SendCommandUp (lt tickCounter (sub TicksPerCommand 1))
+        PostSendCommandUp}
+
+    State[b:0001001] PostSendCommandUp {
+        WaitCommandUp}
+
+    State[b:0001001] WaitCommandUp {
+        WaitCommandUp (lt tickCounter (sub TicksPerNote 2))
+        PostWaitCommandUp}
+
+    State[b:0001001] PostWaitCommandUp {
+        PostWaitCommandUp2Up (lt noteCounter NoteAmplitudeMax)
+        PostWaitCommandUp2Down}
+
+    State[b:0100101] PostWaitCommandUp2Up {
+        SendCommandUp}
+
+    State[b:1100101] PostWaitCommandUp2Down {
+        SendCommandDown}
+
+    State[b:1001000] SendCommandDown {
+        SendCommandDown (lt tickCounter (sub TicksPerCommand 1))
+        PostSendCommandDown}
+
+    State[b:1001001] PostSendCommandDown {
+        WaitCommandDown}
+
+    State[b:1001001] WaitCommandDown {
+        WaitCommandDown (lt tickCounter (sub TicksPerNote 1))
+        PostWaitCommandDown}
+
+    State[b:1001001] PostWaitCommandDown {
+        PostWaitCommandDown2Down (gt noteCounter (add NoteAmplitudeMin 1))
+        PostWaitCommandDown2Up}
+
+    State[b:1100101] PostWaitCommandDown2Down {
+        SendCommandDown}
+
+    State[b:0100101] PostWaitCommandDown2Up {
+        SendCommandUp}
+}
+
+mod RR_Module[] [clock   (1)
+		 clock90 (1)
+		 reset   (1)]
                 [# these outputs go to the DAC
 
 		 dac_sck         (1 clock90)             # clock
@@ -19,14 +83,54 @@ mod RR_Module[] [clock0(1)
 		 ] {
 
     RR_Control[] controlFSM {
-    }
+        clock       clock
+        reset       reset
+        tickCounter tickCounter.data_o
+	noteCounter noteCounter.data_o}
 
-    Counter[6] tickCounter {
-    }
+    UpCounter[15] tickCounter {
+        clock clock
+        reset controlFSM.tickCounter_reset
+	count controlFSM.tickCounter_count}
 
-    Counter[12] noteCounter {
-    }
+    UDCounter[12] noteCounter {
+        clock     clock
+        reset     controlFSM.noteCounter_reset
+        count     controlFSM.noteCounter_count
+        direction controlFSM.noteCounter_direction}
 
     Mux32[1] cmdSelect {
-    }
+        select   (range tickCounter.data_o 4 0)
+	data_i00 0
+	data_i01 0
+	data_i02 0
+	data_i03 0
+	data_i04 0
+	data_i05 0
+	data_i06 0
+	data_i07 0
+	data_i08 0
+	data_i09 0
+	data_i10 1
+	data_i11 1
+	data_i12 0
+	data_i13 0
+	data_i14 0
+	data_i15 0
+	data_i16 (index noteCounter.data_o 11)
+	data_i17 (index noteCounter.data_o 10)
+	data_i18 (index noteCounter.data_o 9)
+	data_i19 (index noteCounter.data_o 8)
+	data_i20 (index noteCounter.data_o 7)
+	data_i21 (index noteCounter.data_o 6)
+	data_i22 (index noteCounter.data_o 5)
+	data_i23 (index noteCounter.data_o 4)
+	data_i24 (index noteCounter.data_o 3)
+	data_i25 (index noteCounter.data_o 2)
+	data_i26 (index noteCounter.data_o 1)
+	data_i27 (index noteCounter.data_o 0)
+	data_i28 0
+	data_i29 0
+	data_i30 0
+	data_i31 0}
 }

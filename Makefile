@@ -6,12 +6,12 @@ parser: parser.hs
 	rm -f parser.hi
 
 rickroll: parser
-	./parser -o ./projects/RickRoll/RickRoll.v ./projects/RickRoll/rickRoll.mv ./projects/RickRoll/top.v ./common/libmv.v
+	./parser -o ./projects/RickRoll/RickRoll.v ./projects/RickRoll/rickRoll.mv ./projects/RickRoll/top.v ./common/counter.v ./common/mux.v ./common/reg.v
 	iverilog -o ./projects/RickRoll/RickRoll.vvp -s top -Wall ./projects/RickRoll/RickRoll.v
 	vvp ./projects/RickRoll/RickRoll.vvp
 
 test: parser
-	./parser -o ./projects/Test/Test.v ./projects/Test/test.mv ./projects/Test/top.v ./common/libmv.v
+	./parser -o ./projects/Test/Test.v ./projects/Test/test.mv ./projects/Test/top.v ./common/counter.v ./common/mux.v ./common/reg.v
 	iverilog -o ./projects/Test/Test.vvp -s top -Wall ./projects/Test/Test.v
 	vvp ./projects/Test/Test.vvp
 

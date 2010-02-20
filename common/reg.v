@@ -1,10 +1,10 @@
 module Reg(clock,reset,data_i,writeEn,data_o);
    parameter Size = 8;
 
-   input wire [('b1) - ('b1):0]  clock;
-   input wire [('b1) - ('b1):0]  reset;
+   input wire [('d1) - ('b1):0]  clock;
+   input wire [('d1) - ('b1):0]  reset;
    input wire [(Size) - ('b1):0] data_i;
-   input wire [('b1) - ('b1):0]  writeEn;
+   input wire [('d1) - ('b1):0]  writeEn;
 
    output reg [(Size) - ('b1):0] data_o;
 
