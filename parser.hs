@@ -492,22 +492,22 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                                  then indent 2 (kind ++ " #(" ++ "\n" ++ 
                                                 (indent 4 $ (genInstModAttr modAttrList) ++ ")") ++ "\n" ++
                                                 (indent 2 $ name ++ "(" ++ "\n" ++ 
-                                                 (indent 2 $ genInstModIn modInList) ++ ",\n" ++ 
+                                                 (indent 2 $ genInstModIn modInList) ++ ",\n\n" ++ 
                                                  (indent 2 $ genInstModOut modOutList) ++ ");"))
                                  else indent 2 (kind ++ "\n" ++
                                                 (indent 2 $ name ++ "(" ++ "\n" ++ 
-                                                 (indent 2 $ genInstModIn modInList) ++ ",\n" ++ 
+                                                 (indent 2 $ genInstModIn modInList) ++ ",\n\n" ++ 
                                                  (indent 2 $ genInstModOut modOutList) ++ ");"))
                              Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> 
                                  if not $ null fsmAttrList
                                  then indent 2 (kind ++ " #(" ++ "\n" ++ 
                                                 (indent 4 $ (genInstFsmAttr fsmAttrList) ++ ")") ++ "\n" ++
                                                 (indent 2 $ name ++ "(" ++ "\n" ++
-                                                 (indent 2 $ genInstFsmIn fsmInList) ++ ",\n" ++ 
+                                                 (indent 2 $ genInstFsmIn fsmInList) ++ ",\n\n" ++ 
                                                  (indent 2 $ genInstFsmOut fsmOutList) ++ ");"))
                                  else indent 2 (kind ++ "\n" ++
                                                 (indent 2 $ name ++ "(" ++ "\n" ++
-                                                 (indent 2 $ genInstFsmIn fsmInList) ++ ",\n" ++ 
+                                                 (indent 2 $ genInstFsmIn fsmInList) ++ ",\n\n" ++ 
                                                  (indent 2 $ genInstFsmOut fsmOutList) ++ ");"))
                              _ -> error ("Unknown module " ++ kind ++ "!")
                         where genInstModAttr :: [MVUnitModAttr] -> String
@@ -803,7 +803,20 @@ toplevel = Map.fromList [("Reg",Mod "Reg"
                                       ModIn "data_i31" (Symb "Size")]
                                      [ModOut "data_o" (Symb "Size") (Symb "builtin")]
                                      []
-                                     True)]
+                                     True),
+                         ("DCM",Mod "DCM"
+                                   []
+                                   [ModIn "clock" (Numb "1"),
+                                    ModIn "reset" (Numb "1")]
+                                   [ModOut "locked" (Numb "1") (Symb "builtin"),
+                                    ModOut "clock_o0" (Numb "1") (Symb "builtin"),
+                                    ModOut "clock_o90" (Numb "1") (Symb "builtin"),
+                                    ModOut "clock_o180" (Numb "1") (Symb "builtin"),
+                                    ModOut "clock_o270" (Numb "1") (Symb "builtin"),
+                                    ModOut "clock_o2x" (Numb "1") (Symb "builtin"),
+                                    ModOut "clock_o2x180" (Numb "1") (Symb "builtin")]
+                                   []
+                                   True)]
 
 compile :: String -> IO String
 compile text =

@@ -1,4 +1,6 @@
-all: parser rickroll test
+LIBCOMMON = ./common/counter.v ./common/mux.v ./common/reg.v ./common/dcm.v
+
+all: parser rickroll testdcm
 
 parser: parser.hs
 	ghc --make -o parser parser.hs
@@ -6,23 +8,19 @@ parser: parser.hs
 	rm -f parser.hi
 
 rickroll: parser
-	./parser -o ./projects/RickRoll/RickRoll.v ./projects/RickRoll/rickRoll.mv ./projects/RickRoll/top.v ./common/counter.v ./common/mux.v ./common/reg.v
+	./parser -o ./projects/RickRoll/RickRoll.v ./projects/RickRoll/rickRoll.mv ./projects/RickRoll/top.v $(LIBCOMMON)
 	iverilog -o ./projects/RickRoll/RickRoll.vvp -s top -Wall ./projects/RickRoll/RickRoll.v
 	vvp ./projects/RickRoll/RickRoll.vvp
 
-test: parser
-	./parser -o ./projects/Test/Test.v ./projects/Test/test.mv ./projects/Test/top.v ./common/counter.v ./common/mux.v ./common/reg.v
-	iverilog -o ./projects/Test/Test.vvp -s top -Wall ./projects/Test/Test.v
-	vvp ./projects/Test/Test.vvp
+testdcm: parser
+	./parser -o ./projects/Test/DCM/TestDCM.v ./projects/Test/DCM/TestDCM.mv $(LIBCOMMON)
 
 clean:
 	rm -f parser
 	rm -f ./projects/RickRoll/RickRoll.v
 	rm -f ./projects/RickRoll/RickRoll.vvp
 	rm -f ./projects/RickRoll/RickRoll.vcd
-	rm -f ./projects/Test/Test.v
-	rm -f ./projects/Test/Test.vvp
-	rm -f ./projects/Test/Test.vcd
+	rm -f ./projects/Test/DCM/TestDCM.v
 
 distclean: clean
 
