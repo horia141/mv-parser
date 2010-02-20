@@ -435,13 +435,13 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
           genIns = unlines $ map genIn inList
               where genIn :: MVUnitModIn -> String
                     genIn (ModIn name size) =
-                        indent 2 $ "input wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";"
+                        indent 2 $ "input wire [" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";"
 
           genOuts :: String
           genOuts = unlines $ map genOut outList
               where genOut :: MVUnitModOut -> String
                     genOut (ModOut name size sink) = 
-                        indent 2 $ "output wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";" ++ "\n" ++
+                        indent 2 $ "output wire [" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";" ++ "\n" ++
                                    "assign " ++ name ++ " = " ++ (generateExpr sink toplevel) ++ ";"
 
           genInsts :: String
@@ -679,14 +679,23 @@ toplevel = Map.fromList [("Reg",Mod "Reg"
                                    [ModOut "data_o" (Symb "Size") (Symb "builtin")]
                                    []
                                    True),
-                         ("Counter",Mod "Counter"
-                                       [ModAttr "Size"]
-                                       [ModIn "clock" (Numb "1"),
-                                        ModIn "reset" (Numb "1"),
-                                        ModIn "count" (Numb "1")]
-                                       [ModOut "data_o" (Symb "Size") (Symb "builtin")]
-                                       []
-                                       True),
+                         ("UpCounter",Mod "UpCounter"
+                                         [ModAttr "Size"]
+                                         [ModIn "clock" (Numb "1"),
+                                          ModIn "reset" (Numb "1"),
+                                          ModIn "count" (Numb "1")]
+                                         [ModOut "data_o" (Symb "Size") (Symb "builtin")]
+                                         []
+                                         True),
+                         ("UDCounter",Mod "UDCounter"
+                                         [ModAttr "Size"]
+                                         [ModIn "clock" (Numb "1"),
+                                          ModIn "reset" (Numb "1"),
+                                          ModIn "count" (Numb "1"),
+                                          ModIn "direction" (Numb "1")]
+                                         [ModOut "data_o" (Symb "Size") (Symb "builtin")]
+                                         []
+                                         True),
                          ("Mux2",Mod "Mux2"
                                      [ModAttr "Size"]
                                      [ModIn "select" (Numb "1"),
