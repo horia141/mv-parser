@@ -3,7 +3,7 @@ def DACAddress b:0000
 def TicksPerCommand 31
 def TicksPerNote 63
 def NoteAmplitudeMin 0
-def NoteAmplitudeMax 10
+def NoteAmplitudeMax 4095
 
 fsm RR_Control[] [clock                 (1)
 		  reset                 (1)
@@ -23,7 +23,7 @@ fsm RR_Control[] [clock                 (1)
         SendCommandUp (lt tickCounter (sub TicksPerCommand 1))
         PostSendCommandUp}
 
-    State[b:0001001] PostSendCommandUp {
+    State[b:0001000] PostSendCommandUp {
         WaitCommandUp}
 
     State[b:0001001] WaitCommandUp {
@@ -44,7 +44,7 @@ fsm RR_Control[] [clock                 (1)
         SendCommandDown (lt tickCounter (sub TicksPerCommand 1))
         PostSendCommandDown}
 
-    State[b:1001001] PostSendCommandDown {
+    State[b:1001000] PostSendCommandDown {
         WaitCommandDown}
 
     State[b:1001001] WaitCommandDown {
@@ -52,7 +52,7 @@ fsm RR_Control[] [clock                 (1)
         PostWaitCommandDown}
 
     State[b:1001001] PostWaitCommandDown {
-        PostWaitCommandDown2Down (gt noteCounter (add NoteAmplitudeMin 1))
+        PostWaitCommandDown2Down (gt noteCounter NoteAmplitudeMin)
         PostWaitCommandDown2Up}
 
     State[b:1100101] PostWaitCommandDown2Down {

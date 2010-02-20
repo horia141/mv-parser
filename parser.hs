@@ -488,17 +488,27 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                     genInst (ModInst kind name attrList nvPairList) =
                         case Map.lookup kind toplevel of
                              Just (Mod modName modAttrList modInList modOutList _ _) -> 
-                                 indent 2 (kind ++ " #(" ++ "\n" ++ 
-                                           (indent 4 $ (genInstModAttr modAttrList) ++ ")") ++ "\n" ++
-                                           (indent 2 $ name ++ "(" ++ "\n" ++ 
-                                                       (indent 2 $ genInstModIn modInList) ++ ",\n" ++ 
-                                                       (indent 2 $ genInstModOut modOutList) ++ ");"))
+                                 if not $ null modAttrList
+                                 then indent 2 (kind ++ " #(" ++ "\n" ++ 
+                                                (indent 4 $ (genInstModAttr modAttrList) ++ ")") ++ "\n" ++
+                                                (indent 2 $ name ++ "(" ++ "\n" ++ 
+                                                 (indent 2 $ genInstModIn modInList) ++ ",\n" ++ 
+                                                 (indent 2 $ genInstModOut modOutList) ++ ");"))
+                                 else indent 2 (kind ++ "\n" ++
+                                                (indent 2 $ name ++ "(" ++ "\n" ++ 
+                                                 (indent 2 $ genInstModIn modInList) ++ ",\n" ++ 
+                                                 (indent 2 $ genInstModOut modOutList) ++ ");"))
                              Just (Fsm fsmName fsmAttrList fsmInList fsmOutList _ _) -> 
-                                 indent 2 (kind ++ " #(" ++ "\n" ++ 
-                                           (indent 4 $ (genInstFsmAttr fsmAttrList) ++ ")") ++ "\n" ++
-                                           (indent 2 $ name ++ "(" ++ "\n" ++
-                                                       (indent 2 $ genInstFsmIn fsmInList) ++ ",\n" ++ 
-                                                       (indent 2 $ genInstFsmOut fsmOutList) ++ ");"))
+                                 if not $ null fsmAttrList
+                                 then indent 2 (kind ++ " #(" ++ "\n" ++ 
+                                                (indent 4 $ (genInstFsmAttr fsmAttrList) ++ ")") ++ "\n" ++
+                                                (indent 2 $ name ++ "(" ++ "\n" ++
+                                                 (indent 2 $ genInstFsmIn fsmInList) ++ ",\n" ++ 
+                                                 (indent 2 $ genInstFsmOut fsmOutList) ++ ");"))
+                                 else indent 2 (kind ++ "\n" ++
+                                                (indent 2 $ name ++ "(" ++ "\n" ++
+                                                 (indent 2 $ genInstFsmIn fsmInList) ++ ",\n" ++ 
+                                                 (indent 2 $ genInstFsmOut fsmOutList) ++ ");"))
                              _ -> error ("Unknown module " ++ kind ++ "!")
                         where genInstModAttr :: [MVUnitModAttr] -> String
                               genInstModAttr (modAttrList) = 

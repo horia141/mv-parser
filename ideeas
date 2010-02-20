@@ -1,5 +1,5 @@
 * urgent:
-  * empty attribute list should not generate # ()
+  + empty attribute list should not generate # ()
 
 * checks :
   * fsm:state jump list is empty.
