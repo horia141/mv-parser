@@ -1,13 +1,14 @@
 def DACCommand b:0011
 def DACAddress b:0000
 def TicksPerCommand 31
-def TicksPerNote 63
+def TicksPerNote 225
 def NoteAmplitudeMin 0
 def NoteAmplitudeMax 4095
 
 fsm RR_Control[] [clock                 (1)
 		  reset                 (1)
-		  tickCounter           (15)
+		  dcm_locked            (1)
+		  tickCounter           (8)
 		  noteCounter           (12)]
                  [dac_cs                (1 0)
 		  dac_clr               (1 1)
@@ -17,6 +18,10 @@ fsm RR_Control[] [clock                 (1)
 		  noteCounter_count     (1 5)
 		  noteCounter_direction (1 6)] {
     State[b:0010111] Reset {
+        WaitDCMLock}
+
+    State[b:0010111] WaitDCMLock {
+        WaitDCMLock (eq dcm_locked 0)
         SendCommandUp}
 
     State[b:0001000] SendCommandUp {
@@ -63,11 +68,10 @@ fsm RR_Control[] [clock                 (1)
 }
 
 mod RR_Module[] [clock   (1)
-		 clock90 (1)
 		 reset   (1)]
                 [# these outputs go to the DAC
 
-		 dac_sck         (1 clock90)             # clock
+		 dac_sck         (1 dcm.clock_o90)       # DAC clock : delayed 90 degrees from the main clock
 		 dac_cs          (1 controlFSM.dac_cs)   # chip-select
 		 dac_clr         (1 controlFSM.dac_clr)  # reset
 		 dac_mosi        (1 cmdSelect.data_o)    # master output/slave input
@@ -82,13 +86,19 @@ mod RR_Module[] [clock   (1)
 		 dis_fpga_init_b (1 1) # Platform Flash PROM
 		 ] {
 
+    FPGADCM[] dcm {
+        clock clock
+        reset reset
+    }
+
     RR_Control[] controlFSM {
         clock       clock
         reset       reset
+	dcm_locked  dcm.locked
         tickCounter tickCounter.data_o
 	noteCounter noteCounter.data_o}
 
-    UpCounter[15] tickCounter {
+    UpCounter[8] tickCounter {
         clock clock
         reset controlFSM.tickCounter_reset
 	count controlFSM.tickCounter_count}

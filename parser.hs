@@ -413,16 +413,23 @@ generateDefs :: MVDefs -> Map String MVDefs -> Int -> String
 generateDefs (Def name value builtin) (toplevel) (tab) = 
     indent tab $ "`define " ++ name ++ " " ++ (generateExpr value toplevel)
 generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab) =
-    indent tab ("module " ++ name ++ "(" ++ genParamList ++ ");" ++ "\n" ++ 
+    indent tab ("module " ++ name ++ "(" ++ "\n" ++ 
+                genParamList ++ ");" ++ "\n" ++ 
                 genAttrs ++ "\n" ++
                 genOutWiresAttrHack ++ "\n" ++
                 genOutWires ++ "\n" ++
-                genIns ++ "\n" ++
-                genOuts ++ "\n" ++
+                genAssignOuts ++ "\n" ++
                 genInsts ++ "\n" ++
                 "endmodule // " ++ name)
     where genParamList :: String
-          genParamList = intercalate "," ((map modInName inList) ++ (map modOutName outList))
+          genParamList = indent 4 $ intercalate ",\n\n" $ filter (/="") [intercalate ",\n" $ map genIn inList,intercalate ",\n" $ map genOut outList]
+              where genIn :: MVUnitModIn -> String
+                    genIn (ModIn name size) =
+                        "input wire [" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name
+
+                    genOut :: MVUnitModOut -> String
+                    genOut (ModOut name size sink) = 
+                        "output wire [" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name
 
           genAttrs :: String
           genAttrs = unlines $ map genAttr attrList
@@ -469,18 +476,11 @@ generateDefs (Mod name attrList inList outList instList builtin) (toplevel) (tab
                                   (Symb ("hack_" ++ instName ++ "_" ++ symbName))
                               hackizeOutput (expr) = expr
 
-          genIns :: String
-          genIns = unlines $ map genIn inList
-              where genIn :: MVUnitModIn -> String
-                    genIn (ModIn name size) =
-                        indent 2 $ "input wire [" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";"
-
-          genOuts :: String
-          genOuts = unlines $ map genOut outList
+          genAssignOuts :: String
+          genAssignOuts = unlines $ map genOut outList
               where genOut :: MVUnitModOut -> String
                     genOut (ModOut name size sink) = 
-                        indent 2 $ "output wire [" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";" ++ "\n" ++
-                                   "assign " ++ name ++ " = " ++ (generateExpr sink toplevel) ++ ";"
+                        indent 2 $ "assign " ++ name ++ " = " ++ (generateExpr sink toplevel) ++ ";"
 
           genInsts :: String
           genInsts = unlines $ map genInst instList
@@ -572,18 +572,25 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
         outputBits = if not $ null stateList
                      then genericLength $ numbValue $ fsmStateOutput $ head stateList
                      else 1
-    in indent tab ("module " ++ name ++ "(" ++ genParamList ++ ");" ++ "\n" ++
+    in indent tab ("module " ++ name ++ "(" ++ "\n" ++ 
+                   genParamList ++ ");" ++ "\n" ++
                    genAttrs ++ "\n" ++ 
                    (genInternalRegs stateBits outputBits) ++ "\n" ++
-                   genIns ++ "\n" ++ 
-                   genOuts ++ "\n" ++
+                   genAssignOuts ++ "\n" ++
                    (genStateDefines states) ++ "\n\n" ++
                    (genStateDefinesText states) ++ "\n\n" ++
                    (genStateChanges states) ++ "\n\n" ++
                    (genStateOutputs states) ++ "\n" ++
                    "endmodule // " ++ name)
     where genParamList :: String
-          genParamList = intercalate "," ((map fsmInName inList) ++ (map fsmOutName outList))
+          genParamList = indent 4 $ intercalate ",\n\n" $ filter (/="") [intercalate ",\n" $ map genIn inList,intercalate ",\n" $ map genOut outList]
+              where genIn :: MVUnitFsmIn -> String
+                    genIn (FsmIn name size) =
+                        "input wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name
+
+                    genOut :: MVUnitFsmOut -> String
+                    genOut (FsmOut name size offset) = 
+                        "output wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name
 
           genAttrs :: String
           genAttrs = unlines $ map genAttr attrList
@@ -591,18 +598,11 @@ generateDefs (Fsm name attrList inList outList stateList builtin) (toplevel) (ta
                     genAttr (FsmAttr name) =
                         indent 2 $ "parameter " ++ name ++ " = 8;"
 
-          genIns :: String
-          genIns = unlines $ map genIn inList
-              where genIn :: MVUnitFsmIn -> String
-                    genIn (FsmIn name size) =
-                        indent 2 $ "input wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";"
-
-          genOuts :: String
-          genOuts = unlines $ map genOut outList
+          genAssignOuts :: String
+          genAssignOuts = indent 2 $ unlines $ map genOut outList
               where genOut :: MVUnitFsmOut -> String
                     genOut (FsmOut name size offset) = 
-                        indent 2 $ "output wire[" ++ (generateExpr (Func "sub" [size, (Numb "1")]) toplevel) ++ ":0] " ++ name ++ ";\n" ++
-                                   "assign " ++ name ++ " = fsm_output[" ++ (generateExpr (Func "sub" [(Func "add" [offset,size]), (Numb "1")]) toplevel) ++ ":" ++ (generateExpr offset toplevel) ++ "];"
+                        "assign " ++ name ++ " = fsm_output[" ++ (generateExpr (Func "sub" [(Func "add" [offset,size]), (Numb "1")]) toplevel) ++ ":" ++ (generateExpr offset toplevel) ++ "];"
 
           genInternalRegs :: Integer -> Integer -> String
           genInternalRegs stateBits outputBits = 
