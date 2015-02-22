@@ -1,0 +1,5 @@
+You need to have *:0008 on lsusb config line for Xilinx,Inc. device
+Follow instructions in usb-driver carefully until the usb led activates
+Try multiple cables. Check LD_PRELOAD and permissions
+Check that all files are copied to where they are neede
+Restart udev with stop/start. Between unplug and plug the cable

@@ -1,0 +1,170 @@
+Proiect 3
+Coman Horia | 441A
+
+Proiectul consta in definirea unui limbaj de descriere hardware, numit "mv", cat si implementarea unui compilator pentru acesta. Nevoia pentru un astfel de limbaj a survenit in urma lucrului cu limbajul Verilog. Am observat un numar de modele usor sintetizabile, in diversele proiecte la care am lucrat, cat si un numar de limitari. Realizarea curenta a limbajului adreseaza problema modelelor, si mai putin pe cea a limitarilor, desi pe masura ce lucrez si dezvolt compilatorul, vor fi adresate si acestea.
+
+In speta : modelele observate apar in definitia masinilor de stari si a iesirilor modulelor. Masinile cu stari finite stau la baza logicii digitale. Orice circuit digital este alcatuit dintr-un numar de componente controlate de o masina de stare. Mv permite o definire succinta a acestora pastrand doar strictul necesar : Definirea starilor, a iesirilor fiecarei stari, si a regulilor de schimbare in stari diferite. Iesirile modulelor instantiate au nevoie de fire explicite (declarate si definite ca primind semnalul dintr-o iesire a modulului). Se prezinta si o forma mai succinta pentru acestea. 
+
+1.Descrierea limbajului mv
+
+In definirea limbajului am incercat sa ii dau o structura simpla, sa folosesc cat mai putine elemente sintactice (momentan sunt esential 3), si sa modelez elemente semantice diferite intr-un mod uniform si ortogonal.
+Inainte de inceperea definirii limbajului, trebuie mentionat ca :
+	* acesta este un limbaj de descriere hardware - asedar se descrie structura circuitelor, a conexiunilor dintre acestea si lumea exterioara.
+	* compilarea se face din mv catre Verilog. Uneltele pe care le folosesc pentru programarea echipamentului accepta fie Verilog/VHDL fie un format proprietar de netlist. Am ales varianta mai facila de generare. Ca bonus, compilatorul poate primii atat fisiere scrise in mv, cat si scrise in Verilog (cu limitari insa*), putand face astfel compilare mixata de cod si "cod obiect" (a la gcc). Module cu functionalitate ce nu poate fi inca exprimata in mv pot fi descrise in Verilog, si compilate impreuna cu, si apelate din, module mv.
+
+1.1 Exemple
+
+* Un numarator ce semnalizeaza de fiecare data cand atinge o valoare superioara prestabilita.
+
+def SupLimit 1000 # limita superioara a numararii
+
+mod CountSupLimit[] [clock(1) # intrarea semnalului ceas
+                     reset(1)] # intrarea semnalului de resetare
+		    [# formatul counter.data_o este forma succinta a firelor de iesire.
+                     # semnalul de iesire limitReached are latimea de 1 bit si primeste
+		     # valoarea prin evaluarea expresiei (eq counter.data_o SupLimit)
+		     # adica este 1 atunci cand egalitatea este adevarata, 0 altfel.
+		     limitReached(1 (eq counter.data_o SupLimit))] {
+
+    # UpCounter provine din libraria standard de module ce vine impreuna cu compilatorul.
+    # Este un numarator resetabil cu numarare controlabila (de semnalul count).
+    UpCounter[10] counter {
+        clock clock
+        reset (eq counter.data_o SupLimit) # numaratorul se reseteaza cand se atinge limita superioara
+	count 1}
+}
+
+* Un numarator ce semnalizeaza de fiecare data cand atinge o valoare superioara prestabilita, apoi continua numararea
+in descrescator pana la 0.
+
+def SupLimit 1000
+
+fsm CountControl[] [clock(1)
+                    reset(1)
+                    reachedLimit(1)
+		    reachedZero(1)]
+                   [counter_direction(1 0)] {
+
+    # Starea initiala obligatorie, activata atat timp cat semnalul de reset este 1.
+    State[0] Reset {
+        CountUp} # starea initiala dupa dezactivarea semnalului reset.
+
+    # Starea de numarare crescatoare. Intre parantezele patrate este iesirea starii
+    # atribuita semnalului counter_direction.
+    State[0] CountUp {
+        CountUp (eq reachedLimit 0) # in caz ca intrarea reachedLimit este 0 starea urmatoare este CountUp
+        CountDown}                  # altfel este CountDown
+
+    State[1] CountDown {
+        CountDown (eq reachedZero 0) # in caz ca intrarea reachedZero este 0 starea urmatoare este CountDown
+        CountUp}                     # altfel este CountUp
+}
+
+mod CountSupLimit2[] [clock(1)
+    		      reset(1)]
+		     [limitReached(1 (eq counter.data_o SupLimit))] {
+
+    # UDCounter provine din libraria standard de module ce vine impreuna cu compilatorul.
+    # Este un numarator resetabil cu numarare si directie controlabila.
+    UDCounter[10] counter {
+        clock clock
+        reset reset
+        direction countControl.counter_direction
+        count 1}
+
+    CountControl[] countControl {
+        clock clock
+        reset reset
+        reachedLimit (eq counter.data_o SupLimit)
+        reachedZero  (eq counter.data_o 0)}
+}
+
+1.2 Descriere formala
+
+Un program mv consta dintr-o multitudine de definitii. O definitie poate introduce fie o constanta, fie un modul, fie o masina cu stari finite. Exista momentan un singur nivel de definitii, numit toplevel : nu se permit definitii locale in cadrul altor definitii. Referinte simbolice se refera fie la un nume din toplevel, fie local la un atribut sau semnal de intrare sau iesire.
+
+Exemple de definitii:
+
+def Size 128 # defineste o constanta numita Size, cu valoarea 128 zecimal
+def Command b:1011 # defineste o constanta numita Command, cu valoarea 1011 in binar
+
+# defineste un modul numit Test, fara nici un atribut, cu un singur semnal de intrare (clock, de un bit) si un singur
+# semnal de iesire (notClock, de un bit si definit ca negatia pe biti a semnalului clock)
+mod Test[] [clock (1)] [notClock (1 (bwnot clock))] {}
+
+Atat modulele cat si masinile de stari au un numar de atribute, care sunt folosite pentru parametrizarea modulelor (se definesc componentele interne ca depinzand de aceste atribute, iar la momentul instantierii, aceste valori fiind specificate, produc un modul distinct : asemnator conceptului de polimorfism pe tipuri din limbajele de programare). Urmeaza apoi un numar de definitii de semnale de intrare si iesire.
+
+Corpul unui modul consta dintr-o multitudine de instantieri de module si masini de stari.
+Corpul unei masini de stari consta intr-o multitudine de definitii de stari. Sintactic acestea sunt asemnatoare.
+
+De exemplu:
+
+...
+
+# Instantierea modulului Test
+
+# modulul se numeste tst, este de tipul Test[] si semnalul sau clock (din stanga) este legat la un semnal clock
+# definit la nivelul modulului instantiator. Pentru a referii semnalul notClock se foloseste numele tst.notClock,
+# adica semnalul notClock din cadrul modulului tst.
+Test[] tst {
+   clock clock}
+
+...
+
+...
+
+# Definirea unei stari
+
+# starea se numeste Error1, are iesirea binara 10 si face un salt la starea Error2 in cazul in care semnalul
+# ErrorCondition este 1, la starea Stop in cazul in care semnalul SeriousErrorCondition este 1, 
+# si la starea Continue altfel
+
+State[b:10] Error1 {
+    Error2 (eq ErrorCondition 1)
+    Stop (eq SeriousErrorCondition 1)
+    Continue}
+
+Ultimul element al limbajului este evaluarea de expresii. Acestea sunt scrise in forma prefixa, forma asemanatoare limbajului LISP. Sunt folosite pentru descrierea elementelor de logica combinatorica, si pot primii ca parametrii
+constante sau semnale. Momentan exista un numar finit de functii posibile (nu exista posibilitatea de functii
+ale utilizatorului), ce se potrivesc cu operatorii de baza ai limbajului Verilog. Unele din limitarile limbajului
+Verilog (cum ar fi imposibilitatea de a folosii anumiti operatori pe constante, sau limitari in posibilitatile
+expresive (expresii peste un anumit prag de complexitate sunt respinse)) se reflecta si in expresiile din mv.
+Este totusi posibil ca aceste limitari sa fie inlocuite definitiv intr-o versiune ulterioara.
+
+Exemple de expresii :
+
+(add 12 34)
+(mul 23 (add 3 4))
+(bwnot clock)
+(add op1 op2)
+(sub Size 1)
+
+Lista de functii permise : add, sub, mul, div, mod, neg, pos, lt, lte, gt, gte, eq, neq, not, or, and, xor, nor, nand, xnor, bwnot, bwor, bwand, bwxor, bwnor, bwnand, bxxnor, shl, shr, cat, index, range
+
+1.2.1 Gramatica limbajului in EBNF.
+
+Program ::= { Def | Mod | Fsm } ;
+
+Def ::= "def" { Expr } ;
+
+Mod ::= "mod" Symbol "[" { ModAttr } "]" "[" { ModIn } "]" "[" { ModOut } "]" "{" { ModInst } "}" ;
+ModAttr ::= Symbol ;
+ModIn ::= Symbol "(" Expr ")" ;
+ModOut ::= Symbol "(" Expr Expr ")" ;
+ModInst ::= Symbol "[" { Expr } "]" Symbol "{" { Symbol Expr } "}" ;
+
+Fsm ::= "fsm" Symbol "[" { FsmAttr } "]" "[" { FsmIn } "]" "[" { FsmOut } "]" "{" { FsmState } "}" ;
+FsmAttr :: Symbol ;
+FsmIn :: Symbol "(" Expr ")" ;
+FsmOut :: Symbol "(" Expr Expr ")" ;
+FsmState :: "State" "[" { Expr } "]" Symbol "{" { Symbol Expr } "}" ;
+
+Expr ::= FuncCall | Path | Symbol | Number ;
+FuncCall ::= "(" Symbol { Expr } ")" ;
+Path ::= Symbol "." Symbol ;
+Symbol ::= "a-zA-Z_" { "a-zA-Z0-9_" } ;
+Number ::= NumberHex | NumberDec | NumberOct | NumberBin ;
+NumberHex ::= "h" ":" "0-9A-Fa-f" { "0-9A-Fa-f" } ;
+NumberDec ::= ["d" ":"] "0-9" { "0-9" } ;
+NumberOct ::= "o" ":" "0-7" { "0-7" } ;
+NumberBin ::= "b" ":" "0-1" { "0-1" } ;
