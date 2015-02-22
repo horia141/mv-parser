@@ -1,0 +1,22 @@
+$date
+	Tue Feb 23 23:06:52 2010
+$end
+$version
+	Icarus Verilog
+$end
+$timescale
+	10ps
+$end
+$scope module MainTest $end
+$var wire 8 ! leds [7:0] $end
+$scope module ledPattern $end
+$var wire 8 " leds [7:0] $end
+$upscope $end
+$upscope $end
+$enddefinitions $end
+#0
+$dumpvars
+b10010100 "
+b10010100 !
+$end
+#10000

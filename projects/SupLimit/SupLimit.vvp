@@ -1,0 +1,82 @@
+#! /usr/bin/vvp
+:ivl_version "0.9.1" "(v0_9_1)";
+:vpi_time_precision - 10;
+:vpi_module "system";
+:vpi_module "v2005_math";
+:vpi_module "va_math";
+S_0x944a9f8 .scope module, "MainTest" "MainTest" 2 3;
+ .timescale -9 -10;
+v0x9471e78_0 .var "clock", 0 0;
+v0x9471f00_0 .net "leds", 7 0, L_0x9471fd8; 1 drivers
+v0x9471f50_0 .var "reset", 0 0;
+S_0x943fac0 .scope module, "countSupLimit" "CountSupLimit" 2 27, 2 348, S_0x944a9f8;
+ .timescale -9 -10;
+P_0x944a9b4 .param/l "hack_counter_Size" 2 354, C4<11000>;
+v0x9471cb0_0 .net "clock", 0 0, v0x9471e78_0; 1 drivers
+v0x9471d30_0 .net "counter_data_o", 23 0, v0x9471be8_0; 1 drivers
+v0x9471da0_0 .alias "leds", 7 0, v0x9471f00_0;
+v0x9471df0_0 .net "reset", 0 0, v0x9471f50_0; 1 drivers
+L_0x9471fd8 .part v0x9471be8_0, 16, 8;
+S_0x9448b28 .scope module, "counter" "UpCounter" 2 362, 2 32, S_0x943fac0;
+ .timescale -9 -10;
+P_0x9434e14 .param/l "Size" 2 33, C4<11000>;
+v0x9448bd0_0 .alias "clock", 0 0, v0x9471cb0_0;
+v0x9471b88_0 .net "count", 0 0, C4<1>; 1 drivers
+v0x9471be8_0 .var "data_o", 23 0;
+v0x9471c48_0 .alias "reset", 0 0, v0x9471df0_0;
+E_0x9434f70 .event posedge, v0x9448bd0_0;
+    .scope S_0x9448b28;
+T_0 ;
+    %wait E_0x9434f70;
+    %load/v 8, v0x9471c48_0, 1;
+    %jmp/0xz  T_0.0, 8;
+    %ix/load 0, 24, 0;
+    %assign/v0 v0x9471be8_0, 0, 0;
+    %jmp T_0.1;
+T_0.0 ;
+    %load/v 8, v0x9471b88_0, 1;
+    %jmp/0xz  T_0.2, 8;
+    %load/v 8, v0x9471be8_0, 24;
+    %mov 32, 0, 8;
+   %addi 8, 1, 32;
+    %ix/load 0, 24, 0;
+    %assign/v0 v0x9471be8_0, 0, 8;
+T_0.2 ;
+T_0.1 ;
+    %jmp T_0;
+    .thread T_0;
+    .scope S_0x944a9f8;
+T_1 ;
+    %vpi_call 2 9 "$dumpfile", "./projects/SupLimit/SupLimit.vcd";
+    %vpi_call 2 10 "$dumpvars";
+    %delay 10000000, 0;
+    %vpi_call 2 12 "$finish";
+    %end;
+    .thread T_1;
+    .scope S_0x944a9f8;
+T_2 ;
+    %delay 0, 0;
+    %set/v v0x9471e78_0, 0, 1;
+T_2.0 ;
+    %delay 10, 0;
+    %load/v 8, v0x9471e78_0, 1;
+    %inv 8, 1;
+    %set/v v0x9471e78_0, 8, 1;
+    %jmp T_2.0;
+    %end;
+    .thread T_2;
+    .scope S_0x944a9f8;
+T_3 ;
+    %delay 0, 0;
+    %set/v v0x9471f50_0, 0, 1;
+    %delay 20, 0;
+    %set/v v0x9471f50_0, 1, 1;
+    %delay 40, 0;
+    %set/v v0x9471f50_0, 0, 1;
+    %end;
+    .thread T_3;
+# The file index is used to find the file name in the following table.
+:file_names 3;
+    "N/A";
+    "<interactive>";
+    "./projects/SupLimit/SupLimit.v";

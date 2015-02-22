@@ -1,0 +1,8 @@
+mod CountSupLimit[] [clock(1)
+                     reset(1)]
+                    [leds (8 (range counter.data_o 23 16))] {
+    UpCounter[24] counter {
+        clock clock
+        reset reset
+	count 1}
+}
